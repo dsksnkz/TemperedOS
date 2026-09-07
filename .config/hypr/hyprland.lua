@@ -8,7 +8,7 @@ end
 local mod = "SUPER"
 local terminal = "kitty"
 local files = "nautilus"
-local launcher = "rofi -show drun"
+local launcher = "~/.local/bin/tempered-launcher"
 
 hl.on("hyprland.start", function()
     hl.exec_cmd("~/.local/bin/tempered-theme")
@@ -126,6 +126,8 @@ hl.layer_rule({ name = "tempered-boot-clean", match = { namespace = "^tempered-b
 hl.layer_rule({ name = "notifications-glass", match = { namespace = "^swaync-.*" }, blur = true, ignore_alpha = 0.12 })
 
 hl.window_rule({ name = "settings-float", match = { class = "io.github.dsksnkz.TemperedOS.Settings" }, float = true, size = "1040 720", center = true })
+hl.window_rule({ name = "launcher-float", match = { class = "io.github.dsksnkz.TemperedOS.Launcher" }, float = true, size = "780 520", center = true })
+hl.window_rule({ name = "wallpaper-float", match = { title = "^wallpaper-picker$" }, float = true, size = "1500 620", center = true })
 hl.window_rule({ name = "clipse-float", match = { class = "clipse" }, float = true, size = "640 680", center = true })
 hl.window_rule({ name = "picture-in-picture", match = { title = "^(Picture-in-Picture)$" }, float = true, pin = true, keep_aspect_ratio = true })
 hl.window_rule({ name = "no-maximize", match = { class = ".*" }, suppress_event = "maximize" })
@@ -136,8 +138,9 @@ for workspace = 1, 6 do
 end
 
 hl.bind(mod .. " + RETURN", hl.dsp.exec_cmd(terminal))
-hl.bind(mod .. " + W", hl.dsp.exec_cmd(terminal))
+hl.bind(mod .. " + W", hl.dsp.exec_cmd("~/.local/bin/tempered-wallpaper-picker"))
 hl.bind(mod .. " + E", hl.dsp.exec_cmd(files))
+hl.bind(mod .. " + S", hl.dsp.exec_cmd("flatpak run app.zen_browser.zen"))
 hl.bind(mod .. " + SPACE", hl.dsp.exec_cmd(launcher))
 hl.bind(mod .. " + ESCAPE", hl.dsp.exec_cmd("~/.local/bin/tempered-control"))
 hl.bind(mod .. " + I", hl.dsp.exec_cmd("~/.local/bin/tempered-settings"))

@@ -10,26 +10,31 @@ PACKAGES=true
 REPO_PACKAGES=(
     hyprland hyprpaper hypridle hyprlock xdg-desktop-portal-hyprland
     quickshell python python-gobject python-pillow gtk4 libadwaita
-    kitty rofi swaync swayosd brightnessctl ddcutil playerctl
+    kitty swaync swayosd brightnessctl ddcutil playerctl
     grim slurp wl-clipboard cliphist btop fastfetch nautilus pavucontrol
     pipewire pipewire-pulse wireplumber libnotify networkmanager
     network-manager-applet bluez bluez-utils blueman power-profiles-daemon
     mission-center polkit-gnome wdisplays hyprsunset flatseal
     gnome-disk-utility baobab archlinux-contrib
     inter-font ttf-jetbrains-mono-nerd papirus-icon-theme adw-gtk-theme
-    jq desktop-file-utils
+    jq desktop-file-utils imagemagick ffmpeg
 )
-AUR_PACKAGES=(wlogout clipse bibata-cursor-theme)
+AUR_PACKAGES=(wlogout clipse bibata-cursor-theme waypaper mpvpaper)
 
 managed=(
     .config/hypr .config/quickshell/tempered .config/quickshell/tempered-boot
-    .config/rofi .config/swaync .config/wlogout .config/gtk-3.0
+    .config/swaync .config/wlogout .config/gtk-3.0
     .config/gtk-4.0 .config/kitty .config/tempered .local/lib/tempered
     .local/bin/tempered-theme .local/bin/tempered-settings
     .local/bin/tempered-control .local/bin/tempered-capture
     .local/bin/tempered-brightness .local/bin/tempered-boot
+    .local/bin/tempered-launcher .local/bin/tempered-wallpaper-apply
+    .local/bin/tempered-wallpaper-picker .local/share/tempered-os
     .local/share/applications/io.github.dsksnkz.TemperedOS.Settings.desktop
     .local/share/applications/io.github.dsksnkz.TemperedOS.Boot.desktop
+    .local/share/applications/io.github.dsksnkz.TemperedOS.Launcher.desktop
+    .local/share/applications/io.github.dsksnkz.TemperedOS.Wallpaper.desktop
+    .config/quickshell/tempered-launcher .config/waypaper/config.ini
     .local/lib/orbitos .local/state/orbitos
     .local/bin/orbitos-boot .local/bin/orbitos-game .local/bin/orbitos-launcher
     .local/bin/orbitos-settings .local/bin/orbitos-tools
@@ -92,7 +97,7 @@ install_packages() {
         done
         ((${#aur_missing[@]} == 0)) || "$helper" -S --needed --noconfirm "${aur_missing[@]}"
     else
-        printf '\n    paru/yay not found; wlogout, clipse and Bibata remain optional.\n'
+        printf '\n    paru/yay not found; install the listed AUR packages manually for every surface.\n'
     fi
 }
 
@@ -119,11 +124,33 @@ deploy() {
         cp -a "$ROOT/$top/." "$HOME/$top/"
     done
     chmod +x "$HOME/.local/bin"/tempered-* "$HOME/.config/quickshell/tempered/status.py"
+    chmod +x "$HOME/.local/share/tempered-os/qs-wallpaper-picker/scripts"/*.sh
+    chmod +x "$HOME/.local/share/tempered-os/qs-wallpaper-picker/scripts"/*.py
     update-desktop-database "$HOME/.local/share/applications" >/dev/null 2>&1 || true
 }
 
+configure_waypaper() {
+    local config="$HOME/.config/waypaper/config.ini"
+    local hook='post_command = ~/.local/bin/tempered-theme $wallpaper'
+    if [[ ! -f "$config" ]]; then
+        mkdir -p "$(dirname "$config")" "$HOME/.config/wallpapers"
+        printf '%s\n' '[Settings]' 'backend = hyprpaper' 'folder = ~/.config/wallpapers' \
+            'monitors = All' 'fill = fill' "$hook" > "$config"
+        return
+    fi
+    if grep -q '^post_command[[:space:]]*=' "$config"; then
+        sed -i "s|^post_command[[:space:]]*=.*|$hook|" "$config"
+    else
+        printf '%s\n' "$hook" >> "$config"
+    fi
+}
+
 draw_theme() {
-    "$HOME/.local/bin/tempered-theme" "$HOME/.config/tempered/wallpapers/default.png" >/dev/null
+    local wallpaper
+    wallpaper="$(waypaper --list 2>/dev/null | jq -r '.[0].wallpaper // empty' 2>/dev/null || true)"
+    [[ -f "$wallpaper" ]] || wallpaper="$(jq -r '.wallpaper // empty' "$HOME/.config/tempered/settings.json" 2>/dev/null || true)"
+    [[ -f "$wallpaper" ]] || wallpaper="$HOME/.config/tempered/wallpapers/default.png"
+    "$HOME/.local/bin/tempered-theme" "$wallpaper" >/dev/null
 }
 
 retire_orbitos() {
@@ -194,6 +221,7 @@ fi
 # Capture before deploy: the repository never ships somebody else's connector layout.
 step 'Remembering connected displays' capture_monitors
 step 'Placing the new desktop' deploy
+step 'Connecting Waypaper colors' configure_waypaper
 step 'Drawing colors from the wallpaper' draw_theme
 
 if [[ -e "$HOME/.local/bin/orbitos-settings" ]] && ask 'Remove the retired OrbitOS surfaces (keep Orbit Apps)?' yes; then

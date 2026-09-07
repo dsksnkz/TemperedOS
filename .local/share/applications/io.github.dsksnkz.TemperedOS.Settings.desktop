@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Tempered OS Settings
 Comment=Shape color, acrylic, motion, hardware and system behavior
-Exec=tempered-settings
+Exec=/bin/sh -lc "~/.local/bin/tempered-settings"
 Icon=preferences-system-symbolic
 Terminal=false
 Type=Application

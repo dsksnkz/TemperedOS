@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Tempered Launcher
+Comment=Find apps and open windows
+Exec=/bin/sh -lc "~/.local/bin/tempered-launcher"
+Icon=system-search-symbolic
+Terminal=false
+Categories=Utility;
+StartupNotify=false

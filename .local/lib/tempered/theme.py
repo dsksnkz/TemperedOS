@@ -64,6 +64,24 @@ def rotate_hue(rgb: tuple[int, int, int], degrees: float) -> tuple[int, int, int
     return tuple(round(part * 255) for part in colorsys.hls_to_rgb(hue, saturation, lightness))
 
 
+def energize(rgb: tuple[int, int, int], dark_surface: bool) -> tuple[int, int, int]:
+    """Keep wallpaper hue while making interactive color reliably vivid and legible."""
+    red, green, blue = (part / 255 for part in rgb)
+    hue, saturation, lightness = colorsys.rgb_to_hls(red, green, blue)
+    saturation = max(0.48, min(0.88, saturation * 1.12))
+    lightness = max(0.54 if dark_surface else 0.38, min(0.68 if dark_surface else 0.56, lightness))
+    return tuple(round(part * 255) for part in colorsys.hls_to_rgb(hue, saturation, lightness))
+
+
+def hue_distance(a: tuple[int, int, int], b: tuple[int, int, int]) -> float:
+    def hue(rgb: tuple[int, int, int]) -> float:
+        red, green, blue = (part / 255 for part in rgb)
+        return colorsys.rgb_to_hls(red, green, blue)[0]
+
+    distance = abs(hue(a) - hue(b))
+    return min(distance, 1 - distance)
+
+
 def palette_from(path: Path) -> dict[str, str]:
     with Image.open(path) as source:
         image = ImageOps.exif_transpose(source).convert("RGB")
@@ -75,17 +93,26 @@ def palette_from(path: Path) -> dict[str, str]:
     swatches.sort(reverse=True)
     dominant = swatches[0][1] if swatches else (58, 72, 88)
     accent_pool = [entry for entry in swatches if 0.16 < luminance(entry[1]) < 0.78]
-    accent = max(accent_pool or swatches, key=lambda item: item[0] * (0.42 + chroma(item[1]) * 2.8))[1]
+    accent_source = max(accent_pool or swatches, key=lambda item: item[0] * (0.42 + chroma(item[1]) * 2.8))[1]
 
     # Tempered stays translucent and readable even when the wallpaper is bright.
     source_is_dark = luminance(dominant) < 0.43
+    accent = energize(accent_source, source_is_dark)
     base = mix(dominant, (8, 12, 18) if source_is_dark else (246, 247, 250), 0.74)
     text = (241, 246, 252) if luminance(base) < 0.36 else (20, 27, 34)
     muted = mix(text, base, 0.42)
     surface = mix(base, accent, 0.10)
     raised = mix(base, text, 0.09)
     border = mix(accent, text, 0.40)
-    accent_2 = rotate_hue(accent, 34)
+    secondary_pool = [entry for entry in accent_pool if entry[1] != accent_source]
+    if secondary_pool:
+        accent_2 = max(
+            secondary_pool,
+            key=lambda item: item[0] * (0.3 + chroma(item[1]) * 2.2) * (0.5 + hue_distance(accent, item[1]) * 2.5),
+        )[1]
+    else:
+        accent_2 = rotate_hue(accent, 34)
+    accent_2 = energize(accent_2, source_is_dark)
 
     return {
         "background": rgb_hex(base),
@@ -104,18 +131,6 @@ def palette_from(path: Path) -> dict[str, str]:
 def emit_files(colors: dict[str, str], wallpaper: Path) -> None:
     payload = {**colors, "wallpaper": str(wallpaper)}
     atomic_text(PALETTE_FILE, json.dumps(payload, indent=2) + "\n")
-
-    rofi = f'''* {{
-    tempered-bg: {colors["background"]}e6;
-    tempered-surface: {colors["surface"]}d9;
-    tempered-raised: {colors["surfaceRaised"]}f2;
-    tempered-fg: {colors["text"]};
-    tempered-muted: {colors["muted"]};
-    tempered-accent: {colors["accent"]};
-    tempered-border: {colors["border"]}80;
-}}
-'''
-    atomic_text(CONFIG / "rofi" / "palette.rasi", rofi)
 
     kitty = f'''foreground {colors["text"]}
 background {colors["background"]}
@@ -153,6 +168,21 @@ wallpaper {{
 '''
     atomic_text(CONFIG / "hypr" / "hyprpaper.conf", paper)
 
+    picker_colors = {
+        "base": colors["background"], "mantle": colors["surface"],
+        "crust": colors["background"], "text": colors["text"],
+        "subtext0": colors["muted"], "subtext1": colors["border"],
+        "surface0": colors["surface"], "surface1": colors["surfaceRaised"],
+        "surface2": colors["border"], "overlay0": colors["muted"],
+        "overlay1": colors["border"], "overlay2": colors["text"],
+        "blue": colors["accent"], "sapphire": colors["accent2"],
+        "peach": colors["accent2"], "green": colors["accent"],
+        "red": colors["danger"], "mauve": colors["accent2"],
+        "pink": colors["accent2"], "yellow": colors["border"],
+        "maroon": colors["danger"], "teal": colors["accent"],
+    }
+    atomic_text(Path("/tmp/qs_colors.json"), json.dumps(picker_colors) + "\n")
+
 
 def notify_desktop(colors: dict[str, str], wallpaper: Path) -> None:
     accent = colors["accent"].lstrip("#")
@@ -167,6 +197,17 @@ def notify_desktop(colors: dict[str, str], wallpaper: Path) -> None:
             subprocess.run(command, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=4)
         except (OSError, subprocess.TimeoutExpired):
             pass
+    shell = CONFIG / "quickshell/tempered/shell.qml"
+    try:
+        subprocess.run(
+            ["qs", "ipc", "--path", str(shell), "call", "tempered", "recolor"],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=2,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        pass
 
 
 def main() -> int:

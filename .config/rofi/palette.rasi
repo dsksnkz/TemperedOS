@@ -1,9 +1,0 @@
-* {
-    tempered-bg: #121923e6;
-    tempered-surface: #202b39d9;
-    tempered-raised: #2d3948f2;
-    tempered-fg: #eef5ff;
-    tempered-muted: #9eabbc;
-    tempered-accent: #7ebeff;
-    tempered-border: #b6d4ef80;
-}

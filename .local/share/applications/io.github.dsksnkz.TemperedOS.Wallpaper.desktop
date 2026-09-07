@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Tempered Wallpapers
+Comment=Browse local and online wallpapers
+Exec=/bin/sh -lc "~/.local/bin/tempered-wallpaper-picker"
+Icon=preferences-desktop-wallpaper-symbolic
+Terminal=false
+Type=Application
+Categories=Settings;DesktopSettings;
+Keywords=wallpaper;background;Tempered;Waypaper;

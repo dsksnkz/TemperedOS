@@ -6,6 +6,8 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
+import Quickshell.Networking
+import Quickshell.Bluetooth
 import Quickshell.Services.Mpris
 import Quickshell.Services.SystemTray
 import Quickshell.Wayland
@@ -30,6 +32,16 @@ ShellRoot {
     readonly property color accent: palette.accent ?? "#7ebeff"
     readonly property color accent2: palette.accent2 ?? "#9a92ff"
     readonly property color border: palette.border ?? "#b6d4ef"
+    readonly property int activeWorkspace: Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : (pulse.workspace ?? 1)
+    readonly property var wifiDevice: {
+        const devices = Networking.devices.values
+        for (let index = 0; index < devices.length; index++)
+            if (devices[index].type === DeviceType.Wifi)
+                return devices[index]
+        return null
+    }
+    readonly property var bluetoothAdapter: Bluetooth.defaultAdapter
+    property var passwordNetwork: null
     readonly property real motionScale: {
         const prefs = pulse.settings ?? ({})
         if (prefs.reduce_motion || prefs.animations === false)
@@ -56,6 +68,27 @@ ShellRoot {
         launchDelay.restart()
     }
 
+    function activateWorkspace(workspaceId) {
+        const spaces = Hyprland.workspaces.values
+        for (let index = 0; index < spaces.length; index++) {
+            if (spaces[index].id === workspaceId) {
+                spaces[index].activate()
+                return
+            }
+        }
+    }
+
+    Process {
+        id: paletteReload
+        command: ["sh", "-lc", "cat \"$HOME/.config/tempered/palette.json\""]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try { shell.palette = JSON.parse(this.text) }
+                catch (error) { console.warn("tempered palette:", error) }
+            }
+        }
+    }
+
     Timer {
         id: launchDelay
         property string command: ""
@@ -68,6 +101,9 @@ ShellRoot {
         function toggle(): void { shell.open("controls") }
         function controls(): void { shell.open("controls") }
         function spaces(): void { shell.open("spaces") }
+        function wifi(): void { shell.open("wifi") }
+        function bluetooth(): void { shell.open("bluetooth") }
+        function recolor(): void { paletteReload.running = true }
         function close(): void { shell.sheetOpen = false }
     }
 
@@ -79,9 +115,9 @@ ShellRoot {
             required property var modelData
             screen: modelData
             color: "transparent"
-            implicitHeight: shell.sheetOpen ? 382 : 66
-            exclusiveZone: 66
-            focusable: false
+            implicitHeight: 470
+            exclusiveZone: 0
+            focusable: shell.sheetOpen
             WlrLayershell.namespace: "tempered-island"
 
             anchors { top: true; left: true; right: true }
@@ -111,7 +147,8 @@ ShellRoot {
                 id: clickSurface
                 readonly property var prefs: shell.pulse.settings ?? ({})
                 width: Math.max(680, Math.min(window.width * ((prefs.island_width ?? 50) / 100), 1160))
-                height: shell.sheetOpen ? 370 : 54
+                readonly property int islandHeight: Math.max(42, Math.min(76, prefs.island_height ?? 50))
+                height: shell.sheetOpen ? islandHeight + 350 : islandHeight
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
                 anchors.topMargin: 8
@@ -119,8 +156,8 @@ ShellRoot {
                 Rectangle {
                     id: island
                     width: parent.width
-                    height: 50
-                    radius: 25
+                    height: clickSurface.islandHeight
+                    radius: height / 2
                     color: Qt.rgba(shell.surface.r, shell.surface.g, shell.surface.b, (clickSurface.prefs.glass_opacity ?? 68) / 100)
                     border.width: 1
                     border.color: Qt.rgba(shell.border.r, shell.border.g, shell.border.b, 0.30)
@@ -128,24 +165,13 @@ ShellRoot {
                     Rectangle {
                         anchors.fill: parent
                         anchors.margins: 1
-                        radius: 24
+                        radius: parent.radius - 1
                         gradient: Gradient {
                             orientation: Gradient.Horizontal
                             GradientStop { position: 0; color: Qt.rgba(shell.accent.r, shell.accent.g, shell.accent.b, 0.13) }
                             GradientStop { position: 0.46; color: "transparent" }
                             GradientStop { position: 1; color: Qt.rgba(shell.accent2.r, shell.accent2.g, shell.accent2.b, 0.12) }
                         }
-                    }
-
-                    // The rivulet is the island's identity: workspace beads feed into a living center droplet.
-                    Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.leftMargin: 26
-                        anchors.rightMargin: 26
-                        height: 1
-                        color: Qt.rgba(shell.border.r, shell.border.g, shell.border.b, 0.16)
                     }
 
                     Row {
@@ -159,13 +185,14 @@ ShellRoot {
                             model: 6
                             Rectangle {
                                 required property int index
-                                width: shell.pulse.workspace === index + 1 ? 24 : 7
+                                width: shell.activeWorkspace === index + 1 ? 24 : 7
                                 height: 7
                                 radius: 4
-                                color: shell.pulse.workspace === index + 1 ? shell.accent
+                                color: shell.activeWorkspace === index + 1 ? shell.accent
                                       : Qt.rgba(shell.fg.r, shell.fg.g, shell.fg.b, 0.25)
-                                Behavior on width { NumberAnimation { duration: Math.round(240 * shell.motionScale); easing.type: Easing.OutBack } }
-                                TapHandler { onTapped: shell.run("hyprctl dispatch workspace " + (index + 1)) }
+                                Behavior on width { NumberAnimation { duration: Math.round(105 * shell.motionScale); easing.type: Easing.OutCubic } }
+                                Behavior on color { ColorAnimation { duration: Math.round(90 * shell.motionScale) } }
+                                TapHandler { onTapped: shell.activateWorkspace(index + 1) }
                             }
                         }
                     }
@@ -257,18 +284,19 @@ ShellRoot {
                     anchors.top: island.bottom
                     anchors.topMargin: 8
                     width: parent.width
-                    height: 304
+                    height: 336
                     radius: 26
                     visible: opacity > 0.01
                     opacity: shell.sheetOpen ? 1 : 0
-                    y: shell.sheetOpen ? 58 : 42
+                    scale: shell.sheetOpen ? 1 : 0.985
+                    transformOrigin: Item.Top
                     color: Qt.rgba(shell.surface.r, shell.surface.g, shell.surface.b, Math.min(0.94, ((clickSurface.prefs.glass_opacity ?? 68) + 10) / 100))
                     border.width: 1
                     border.color: Qt.rgba(shell.border.r, shell.border.g, shell.border.b, 0.28)
                     clip: true
 
-                    Behavior on opacity { NumberAnimation { duration: Math.round(180 * shell.motionScale) } }
-                    Behavior on y { NumberAnimation { duration: Math.round(260 * shell.motionScale); easing.type: Easing.OutCubic } }
+                    Behavior on opacity { NumberAnimation { duration: Math.round(125 * shell.motionScale); easing.type: Easing.OutCubic } }
+                    Behavior on scale { NumberAnimation { duration: Math.round(145 * shell.motionScale); easing.type: Easing.OutCubic } }
 
                     ColumnLayout {
                         anchors.fill: parent
@@ -278,7 +306,7 @@ ShellRoot {
                         RowLayout {
                             Layout.fillWidth: true
                             Text {
-                                text: shell.sheet === "media" ? "Sound current" : "Your current"
+                                text: shell.sheet === "wifi" ? "Wi-Fi" : shell.sheet === "bluetooth" ? "Bluetooth" : shell.sheet === "media" ? "Now playing" : "Controls"
                                 color: shell.fg
                                 font.family: "Inter"
                                 font.pixelSize: 17
@@ -286,7 +314,7 @@ ShellRoot {
                             }
                             Text {
                                 Layout.fillWidth: true
-                                text: shell.sheet === "media" ? "one place for playback and output" : "a short path through the machine"
+                                text: shell.sheet === "wifi" ? (Networking.wifiEnabled ? "On" : "Off") : shell.sheet === "bluetooth" ? (shell.bluetoothAdapter && shell.bluetoothAdapter.enabled ? "On" : "Off") : ""
                                 color: shell.muted
                                 font.family: "Inter"
                                 font.pixelSize: 10
@@ -301,6 +329,7 @@ ShellRoot {
                         }
 
                         RowLayout {
+                            visible: shell.sheet === "controls" || shell.sheet === "media"
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             spacing: 16
@@ -308,10 +337,9 @@ ShellRoot {
                             ColumnLayout {
                                 Layout.preferredWidth: 236
                                 spacing: 10
-                                Text { text: "FLOW"; color: shell.accent; font.family: "JetBrains Mono"; font.pixelSize: 9; font.letterSpacing: 1.6 }
-                                GlassAction { Layout.fillWidth: true; glyph: "󰖩"; label: shell.pulse.network ?? "Network"; detail: "Connections"; foreground: shell.fg; muted: shell.muted; accent: shell.accent; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.launch("nm-connection-editor") }
-                                GlassAction { Layout.fillWidth: true; glyph: "󰂯"; label: "Bluetooth"; detail: "Devices and handoff"; foreground: shell.fg; muted: shell.muted; accent: shell.accent; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.launch("blueman-manager") }
-                                GlassAction { Layout.fillWidth: true; glyph: "󰂚"; label: "Quiet current"; detail: "Notifications"; foreground: shell.fg; muted: shell.muted; accent: shell.accent; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.launch("swaync-client --toggle-panel") }
+                                GlassAction { Layout.fillWidth: true; glyph: "󰖩"; label: shell.pulse.network ?? "Wi-Fi"; detail: "Networks"; foreground: shell.fg; muted: shell.muted; accent: shell.accent; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.open("wifi") }
+                                GlassAction { Layout.fillWidth: true; glyph: "󰂯"; label: "Bluetooth"; detail: "Devices"; foreground: shell.fg; muted: shell.muted; accent: shell.accent; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.open("bluetooth") }
+                                GlassAction { Layout.fillWidth: true; glyph: "󰂚"; label: "Notifications"; detail: "Open history"; foreground: shell.fg; muted: shell.muted; accent: shell.accent; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.launch("swaync-client --toggle-panel") }
                             }
 
                             Rectangle { Layout.fillHeight: true; width: 1; color: Qt.rgba(shell.border.r, shell.border.g, shell.border.b, 0.14) }
@@ -319,7 +347,6 @@ ShellRoot {
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 spacing: 10
-                                Text { text: "PRESSURE"; color: shell.accent2; font.family: "JetBrains Mono"; font.pixelSize: 9; font.letterSpacing: 1.6 }
                                 FluidSlider {
                                     Layout.fillWidth: true; glyph: shell.pulse.muted ? "󰖁" : "󰕾"; motionScale: shell.motionScale
                                     value: (shell.pulse.volume ?? 0) / 100; foreground: shell.fg; accent: shell.accent
@@ -328,7 +355,7 @@ ShellRoot {
                                 RowLayout {
                                     Layout.fillWidth: true
                                     GlassAction { Layout.fillWidth: true; glyph: shell.pulse.playing ? "󰏤" : "󰐊"; label: shell.pulse.playing ? "Pause" : "Play"; detail: shell.pulse.title || "No active player"; foreground: shell.fg; muted: shell.muted; accent: shell.accent; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.run("playerctl play-pause") }
-                                    GlassAction { Layout.fillWidth: true; glyph: "󰒓"; label: "Settings"; detail: "Shape the system"; foreground: shell.fg; muted: shell.muted; accent: shell.accent2; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.launch("tempered-settings") }
+                                    GlassAction { Layout.fillWidth: true; glyph: "󰒓"; label: "Settings"; detail: "System controls"; foreground: shell.fg; muted: shell.muted; accent: shell.accent2; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.launch("tempered-settings") }
                                 }
                                 RowLayout {
                                     Layout.fillWidth: true
@@ -342,10 +369,108 @@ ShellRoot {
                             ColumnLayout {
                                 Layout.preferredWidth: 154
                                 spacing: 10
-                                Text { text: "RELEASE"; color: shell.accent; font.family: "JetBrains Mono"; font.pixelSize: 9; font.letterSpacing: 1.6 }
-                                GlassAction { Layout.fillWidth: true; glyph: "󰌾"; label: "Lock"; detail: "Leave it held"; foreground: shell.fg; muted: shell.muted; accent: shell.accent; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.launch("hyprlock") }
-                                GlassAction { Layout.fillWidth: true; glyph: "󰐥"; label: "Power"; detail: "End this session"; foreground: shell.fg; muted: shell.muted; accent: shell.accent2; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.launch("wlogout") }
+                                GlassAction { Layout.fillWidth: true; glyph: "󰌾"; label: "Lock"; detail: "Secure session"; foreground: shell.fg; muted: shell.muted; accent: shell.accent; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.launch("hyprlock") }
+                                GlassAction { Layout.fillWidth: true; glyph: "󰐥"; label: "Power"; detail: "Session options"; foreground: shell.fg; muted: shell.muted; accent: shell.accent2; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.launch("wlogout") }
                                 Text { text: "CPU " + (shell.pulse.cpu ?? 0) + "%  ·  RAM " + (shell.pulse.memory ?? 0) + "%"; color: shell.muted; font.family: "JetBrains Mono"; font.pixelSize: 9 }
+                            }
+                        }
+
+                        ColumnLayout {
+                            visible: shell.sheet === "wifi"
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            spacing: 8
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Text { text: "Wi-Fi"; color: shell.fg; font.family: "Inter"; font.pixelSize: 13; Layout.fillWidth: true }
+                                Rectangle {
+                                    width: 48; height: 25; radius: 13
+                                    color: Networking.wifiEnabled ? shell.accent : shell.raised
+                                    Rectangle { width: 19; height: 19; radius: 10; y: 3; x: Networking.wifiEnabled ? 26 : 3; color: Networking.wifiEnabled ? shell.bg : shell.muted; Behavior on x { NumberAnimation { duration: 100 } } }
+                                    TapHandler { onTapped: Networking.wifiEnabled = !Networking.wifiEnabled }
+                                }
+                                Text { text: "Scan"; color: shell.accent; font.family: "Inter"; font.pixelSize: 11; TapHandler { onTapped: if (shell.wifiDevice) shell.wifiDevice.scannerEnabled = true } }
+                            }
+
+                            ListView {
+                                id: wifiList
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                spacing: 5
+                                clip: true
+                                model: shell.wifiDevice ? shell.wifiDevice.networks : null
+                                delegate: Rectangle {
+                                    required property var modelData
+                                    width: wifiList.width; height: 43; radius: 14
+                                    color: modelData.connected ? Qt.rgba(shell.accent.r, shell.accent.g, shell.accent.b, 0.20) : wifiHover.hovered ? Qt.rgba(shell.raised.r, shell.raised.g, shell.raised.b, 0.72) : "transparent"
+                                    RowLayout {
+                                        anchors.fill: parent; anchors.leftMargin: 13; anchors.rightMargin: 13
+                                        Text { text: modelData.connected ? "󰤨" : modelData.security === WifiSecurityType.Open ? "󰤨" : "󰤪"; color: modelData.connected ? shell.accent : shell.fg; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 14 }
+                                        Text { text: modelData.name; color: shell.fg; font.family: "Inter"; font.pixelSize: 12; Layout.fillWidth: true; elide: Text.ElideRight }
+                                        Text { text: modelData.connected ? "Connected" : Math.round(modelData.signalStrength * 100) + "%"; color: shell.muted; font.family: "Inter"; font.pixelSize: 10 }
+                                    }
+                                    HoverHandler { id: wifiHover }
+                                    TapHandler {
+                                        onTapped: {
+                                            if (modelData.connected) modelData.disconnect()
+                                            else if (modelData.known || modelData.security === WifiSecurityType.Open) modelData.connect()
+                                            else { shell.passwordNetwork = modelData; wifiPassword.forceActiveFocus() }
+                                        }
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                visible: shell.passwordNetwork !== null
+                                Layout.fillWidth: true; height: 40; radius: 13
+                                color: Qt.rgba(shell.raised.r, shell.raised.g, shell.raised.b, 0.76)
+                                RowLayout {
+                                    anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 8
+                                    TextInput { id: wifiPassword; Layout.fillWidth: true; color: shell.fg; font.family: "Inter"; font.pixelSize: 12; echoMode: TextInput.Password; clip: true; Text { visible: wifiPassword.text.length === 0; text: "Password for " + (shell.passwordNetwork ? shell.passwordNetwork.name : "network"); color: shell.muted; font: wifiPassword.font } }
+                                    Text { text: "Join"; color: shell.accent; font.family: "Inter"; font.pixelSize: 11; TapHandler { onTapped: { if (shell.passwordNetwork && wifiPassword.text.length) shell.passwordNetwork.connectWithPsk(wifiPassword.text); wifiPassword.text = ""; shell.passwordNetwork = null } } }
+                                }
+                            }
+                        }
+
+                        ColumnLayout {
+                            visible: shell.sheet === "bluetooth"
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            spacing: 8
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Text { text: "Bluetooth"; color: shell.fg; font.family: "Inter"; font.pixelSize: 13; Layout.fillWidth: true }
+                                Rectangle {
+                                    width: 48; height: 25; radius: 13
+                                    color: shell.bluetoothAdapter && shell.bluetoothAdapter.enabled ? shell.accent : shell.raised
+                                    Rectangle { width: 19; height: 19; radius: 10; y: 3; x: shell.bluetoothAdapter && shell.bluetoothAdapter.enabled ? 26 : 3; color: shell.bluetoothAdapter && shell.bluetoothAdapter.enabled ? shell.bg : shell.muted; Behavior on x { NumberAnimation { duration: 100 } } }
+                                    TapHandler { onTapped: if (shell.bluetoothAdapter) shell.bluetoothAdapter.enabled = !shell.bluetoothAdapter.enabled }
+                                }
+                                Text { text: shell.bluetoothAdapter && shell.bluetoothAdapter.discovering ? "Scanning…" : "Scan"; color: shell.accent; font.family: "Inter"; font.pixelSize: 11; TapHandler { onTapped: if (shell.bluetoothAdapter) shell.bluetoothAdapter.discovering = !shell.bluetoothAdapter.discovering } }
+                            }
+
+                            ListView {
+                                id: bluetoothList
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                spacing: 5
+                                clip: true
+                                model: shell.bluetoothAdapter ? shell.bluetoothAdapter.devices : null
+                                delegate: Rectangle {
+                                    required property var modelData
+                                    width: bluetoothList.width; height: 45; radius: 14
+                                    color: modelData.connected ? Qt.rgba(shell.accent.r, shell.accent.g, shell.accent.b, 0.20) : btHover.hovered ? Qt.rgba(shell.raised.r, shell.raised.g, shell.raised.b, 0.72) : "transparent"
+                                    RowLayout {
+                                        anchors.fill: parent; anchors.leftMargin: 13; anchors.rightMargin: 13
+                                        Text { text: "󰂯"; color: modelData.connected ? shell.accent : shell.fg; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 15 }
+                                        ColumnLayout { Layout.fillWidth: true; spacing: 0; Text { text: modelData.name || modelData.deviceName; color: shell.fg; font.family: "Inter"; font.pixelSize: 12; Layout.fillWidth: true; elide: Text.ElideRight } Text { text: modelData.connected ? "Connected" : modelData.paired ? "Paired" : "Nearby"; color: shell.muted; font.family: "Inter"; font.pixelSize: 9 } }
+                                        Text { visible: modelData.batteryAvailable; text: Math.round(modelData.battery * 100) + "%"; color: shell.muted; font.family: "Inter"; font.pixelSize: 10 }
+                                    }
+                                    HoverHandler { id: btHover }
+                                    TapHandler { onTapped: { if (modelData.connected) modelData.disconnect(); else if (modelData.paired) modelData.connect(); else modelData.pair() } }
+                                }
                             }
                         }
                     }

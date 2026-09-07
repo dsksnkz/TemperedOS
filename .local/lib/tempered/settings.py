@@ -30,6 +30,7 @@ DEFAULTS: dict[str, object] = {
     "adaptive_color": True,
     "glass_opacity": 68,
     "island_width": 50,
+    "island_height": 50,
     "island_compact": False,
     "show_seconds": False,
     "rounding": 18,
@@ -260,25 +261,34 @@ class TemperedSettings(Adw.Application):
         window.set_content(toolbar)
 
         pages = [
-            ("acrylic", self.appearance_page()), ("island", self.island_page()),
-            ("displays", self.displays_page()), ("sound", self.sound_page()),
-            ("input", self.input_page()), ("motion", self.motion_page()),
-            ("network", self.network_page()), ("power", self.power_page()),
+            ("wifi", self.wifi_page()), ("bluetooth", self.bluetooth_page()),
+            ("network", self.network_page()), ("sound", self.sound_page()),
+            ("power", self.power_page()), ("system", self.system_page()),
+            ("access", self.accessibility_page()), ("acrylic", self.appearance_page()),
+            ("island", self.island_page()), ("motion", self.motion_page()),
+            ("displays", self.displays_page()), ("input", self.input_page()),
             ("apps", self.apps_page()), ("storage", self.storage_page()),
-            ("region", self.region_page()),
-            ("access", self.accessibility_page()), ("privacy", self.privacy_page()),
-            ("system", self.system_page()),
+            ("region", self.region_page()), ("privacy", self.privacy_page()),
         ]
         for name, page in pages:
             self.stack.add_named(page, name)
+        if self.nav.get_selected_row() is None:
+            self.nav.select_row(self.nav.get_row_at_index(0))
+        self.nav.grab_focus()
         self.window = window
         window.present()
 
     def install_css(self) -> None:
         colors = palette()
+        Adw.StyleManager.get_default().set_color_scheme(
+            Adw.ColorScheme.FORCE_DARK if colors.get("dark", True) else Adw.ColorScheme.FORCE_LIGHT
+        )
         provider = Gtk.CssProvider()
         provider.load_from_string(f'''
             .tempered-window {{ background: {colors["background"]}; }}
+            .tempered-window row, .tempered-window label, .tempered-window entry {{ color: {colors["text"]}; }}
+            .tempered-window .dim-label {{ color: {colors["muted"]}; }}
+            .tempered-window .boxed-list {{ background: alpha({colors["surface"]}, .76); }}
             .tempered-sidebar {{ background: alpha({colors["surface"]}, .80); border-right: 1px solid alpha({colors["border"]}, .20); }}
             .tempered-sidebar row {{ margin: 2px 10px; border-radius: 13px; padding: 3px; }}
             .tempered-sidebar row:selected {{ background: alpha({colors["accent"]}, .22); color: {colors["text"]}; }}
@@ -293,27 +303,32 @@ class TemperedSettings(Adw.Application):
         box.set_size_request(230, -1)
         box.add_css_class("tempered-sidebar")
         mark = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-        mark.set_margin_top(20); mark.set_margin_start(22); mark.set_margin_bottom(10)
-        title = Gtk.Label(label="TEMPERED", xalign=0); title.add_css_class("title-2")
-        subtitle = Gtk.Label(label="shape follows your wallpaper", xalign=0); subtitle.add_css_class("dim-label")
-        mark.append(title); mark.append(subtitle); box.append(mark)
+        mark.set_margin_top(16); mark.set_margin_start(18); mark.set_margin_bottom(2)
+        title = Gtk.Label(label="Settings", xalign=0); title.add_css_class("title-2")
+        mark.append(title); box.append(mark)
+        search = Gtk.SearchEntry(placeholder_text="Search")
+        search.set_margin_start(12); search.set_margin_end(12); search.set_margin_bottom(4)
+        box.append(search)
         nav = Gtk.ListBox(selection_mode=Gtk.SelectionMode.SINGLE)
+        self.nav = nav
         nav.add_css_class("navigation-sidebar")
         entries = [
-            ("acrylic", "Acrylic and color", "applications-graphics-symbolic"),
-            ("island", "Dynamic island", "view-more-symbolic"),
-            ("displays", "Displays", "video-display-symbolic"),
+            ("wifi", "Wi-Fi", "network-wireless-symbolic"),
+            ("bluetooth", "Bluetooth", "bluetooth-symbolic"),
+            ("network", "Network", "network-wired-symbolic"),
             ("sound", "Sound", "audio-speakers-symbolic"),
-            ("input", "Keyboard and pointer", "input-keyboard-symbolic"),
-            ("motion", "Motion and windows", "preferences-system-windows-symbolic"),
-            ("network", "Network and Bluetooth", "network-wireless-symbolic"),
-            ("power", "Power and idle", "battery-symbolic"),
-            ("apps", "Apps and startup", "system-software-install-symbolic"),
-            ("storage", "Storage and updates", "drive-harddisk-symbolic"),
-            ("region", "Language and time", "preferences-system-time-symbolic"),
+            ("power", "Power and Battery", "battery-symbolic"),
+            ("system", "General", "preferences-system-symbolic"),
             ("access", "Accessibility", "preferences-desktop-accessibility-symbolic"),
+            ("acrylic", "Appearance", "applications-graphics-symbolic"),
+            ("island", "Desktop and Island", "view-more-symbolic"),
+            ("motion", "Motion and Windows", "preferences-system-windows-symbolic"),
+            ("displays", "Displays", "video-display-symbolic"),
+            ("input", "Keyboard and Pointer", "input-keyboard-symbolic"),
+            ("apps", "Launcher and Apps", "system-software-install-symbolic"),
+            ("storage", "Storage and Updates", "drive-harddisk-symbolic"),
+            ("region", "Language and Time", "preferences-system-time-symbolic"),
             ("privacy", "Privacy and safety", "security-high-symbolic"),
-            ("system", "System", "computer-symbolic"),
         ]
         for name, label, icon in entries:
             row = Adw.ActionRow(title=label)
@@ -321,6 +336,8 @@ class TemperedSettings(Adw.Application):
             row.add_prefix(Gtk.Image.new_from_icon_name(icon))
             nav.append(row)
         nav.connect("row-selected", lambda _list, row: self.stack.set_visible_child_name(row.get_name()) if row else None)
+        nav.set_filter_func(lambda row: search.get_text().casefold() in row.get_title().casefold())
+        search.connect("search-changed", lambda *_args: nav.invalidate_filter())
         nav_scroll = Gtk.ScrolledWindow(vexpand=True)
         nav_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         nav_scroll.set_child(nav)
@@ -329,10 +346,6 @@ class TemperedSettings(Adw.Application):
 
     def page(self, title: str, description: str) -> tuple[Adw.PreferencesPage, Adw.PreferencesGroup]:
         page = Adw.PreferencesPage(title=title)
-        hero = Adw.PreferencesGroup()
-        row = Adw.ActionRow(title=title, subtitle=description)
-        row.add_css_class("tempered-hero")
-        hero.add(row); page.add(hero)
         group = Adw.PreferencesGroup()
         page.add(group)
         return page, group
@@ -384,8 +397,9 @@ class TemperedSettings(Adw.Application):
         return button
 
     def appearance_page(self) -> Adw.PreferencesPage:
-        page, group = self.page("Acrylic and color", "The wallpaper is the source material; glass inherits its temperature instead of wearing a fixed theme.")
-        self.action(group, "Wallpaper", str(self.settings["wallpaper"]), "preferences-desktop-wallpaper-symbolic", self.choose_wallpaper)
+        page, group = self.page("Appearance", "")
+        self.action(group, "Wallpapers", "Browse local and online", "preferences-desktop-wallpaper-symbolic", lambda: detached([str(HOME / ".local/bin/tempered-wallpaper-picker")]))
+        self.action(group, "Choose image", "Select a file", "folder-pictures-symbolic", self.choose_wallpaper)
         self.switch(group, "adaptive_color", "Wallpaper colors", "Regenerate the interface palette whenever the wallpaper changes")
         self.scale(group, "glass_opacity", "Glass density", "Lower is airier; higher separates controls from busy images", 45, 92, 1)
         self.scale(group, "rounding", "Corner character", "Shared by windows, menus and shell surfaces", 6, 28, 1, lambda value: keyword("decoration:rounding", round(value)))
@@ -395,8 +409,9 @@ class TemperedSettings(Adw.Application):
         return page
 
     def island_page(self) -> Adw.PreferencesPage:
-        page, group = self.page("Dynamic island", "A narrow current of workspaces, media and system pressure—expand only when you ask.")
+        page, group = self.page("Desktop and Island", "")
         self.scale(group, "island_width", "Island span", "Percentage of the monitor width", 38, 68, 1)
+        self.scale(group, "island_height", "Island height", "Vertical size", 42, 76, 1)
         self.switch(group, "island_compact", "Compact current", "Tighten information when the display is crowded")
         self.switch(group, "show_seconds", "Show seconds", "Useful when timing work; calmer when disabled")
         self.action(group, "Open the island", "Preview controls and current system state", "view-more-symbolic", lambda: detached(["qs", "ipc", "-p", shell_path(), "call", "tempered", "controls"]))
@@ -432,6 +447,7 @@ class TemperedSettings(Adw.Application):
             names = [label for _name, label in sink_values]
             row = Adw.ActionRow(title="Sound output", subtitle="Choose speakers, IEMs or Bluetooth")
             selector = Gtk.DropDown.new_from_strings(names)
+            selector.set_size_request(360, -1); selector.set_valign(Gtk.Align.CENTER)
             default_sink = output(["pactl", "get-default-sink"])
             selector.set_selected(next((index for index, item in enumerate(sink_values) if item[0] == default_sink), 0))
             selector.connect("notify::selected", lambda widget, _param: run(["pactl", "set-default-sink", sink_values[widget.get_selected()][0]]))
@@ -441,6 +457,7 @@ class TemperedSettings(Adw.Application):
             labels = [label for _name, label in source_values]
             row = Adw.ActionRow(title="Microphone", subtitle="Choose the recording input")
             selector = Gtk.DropDown.new_from_strings(labels)
+            selector.set_size_request(360, -1); selector.set_valign(Gtk.Align.CENTER)
             default_source = output(["pactl", "get-default-source"])
             selector.set_selected(next((index for index, item in enumerate(source_values) if item[0] == default_source), 0))
             selector.connect("notify::selected", lambda widget, _param: run(["pactl", "set-default-source", source_values[widget.get_selected()][0]]))
@@ -473,16 +490,31 @@ class TemperedSettings(Adw.Application):
         self.choice(group, "focus_follows_mouse", "Focus behavior", "Choose how pointer movement changes focus", ["0", "1", "2", "3"], lambda value: keyword("input:follow_mouse", value))
         return page
 
-    def network_page(self) -> Adw.PreferencesPage:
-        page, group = self.page("Network and Bluetooth", "Connection controls remain native and inspectable—no hidden network state.")
+    def wifi_page(self) -> Adw.PreferencesPage:
+        page, group = self.page("Wi-Fi", "")
         wifi = output(["nmcli", "radio", "wifi"], "disabled") == "enabled"
         self.settings["wifi"] = wifi
         self.switch(group, "wifi", "Wi‑Fi", "Wireless networking", None).connect("notify::active", lambda row, _p: run(["nmcli", "radio", "wifi", "on" if row.get_active() else "off"]))
+        active = output(["nmcli", "-t", "-f", "active,ssid", "dev", "wifi"])
+        current = next((line.split(":", 1)[1] for line in active.splitlines() if line.startswith("yes:")), "Not connected")
+        self.action(group, "Current network", current, "network-wireless-symbolic", lambda: detached(["qs", "ipc", "-p", shell_path(), "call", "tempered", "wifi"]))
+        self.action(group, "Known networks", "Saved connections", "emblem-system-symbolic", lambda: detached(["nm-connection-editor"]))
+        return page
+
+    def bluetooth_page(self) -> Adw.PreferencesPage:
+        page, group = self.page("Bluetooth", "")
         bluetooth = "Powered: yes" in output(["bluetoothctl", "show"])
         self.settings["bluetooth"] = bluetooth
         self.switch(group, "bluetooth", "Bluetooth", "Headphones, controllers and nearby devices", None).connect("notify::active", lambda row, _p: run(["bluetoothctl", "power", "on" if row.get_active() else "off"]))
-        self.action(group, "Connections", "Ethernet, Wi‑Fi, DNS and saved networks", "network-wired-symbolic", lambda: detached(["nm-connection-editor"]))
-        self.action(group, "Bluetooth devices", "Pair, trust and route connected devices", "bluetooth-symbolic", lambda: detached(["blueman-manager"]))
+        devices = output(["bluetoothctl", "devices", "Connected"])
+        summary = " · ".join(line.split(" ", 2)[2] for line in devices.splitlines() if len(line.split(" ", 2)) == 3) or "No connected devices"
+        self.action(group, "Devices", summary, "bluetooth-symbolic", lambda: detached(["qs", "ipc", "-p", shell_path(), "call", "tempered", "bluetooth"]))
+        return page
+
+    def network_page(self) -> Adw.PreferencesPage:
+        page, group = self.page("Network", "")
+        self.action(group, "Connections", "Ethernet, DNS and saved networks", "network-wired-symbolic", lambda: detached(["nm-connection-editor"]))
+        self.action(group, "Connection status", output(["nmcli", "-t", "-f", "STATE", "general"], "Unknown"), "network-transmit-receive-symbolic", lambda: detached(["kitty", "--title", "Network status", "-e", "nmcli", "device", "status"]))
         return page
 
     def power_page(self) -> Adw.PreferencesPage:
@@ -575,8 +607,13 @@ class TemperedSettings(Adw.Application):
         path = selected.get_path()
         if not path:
             return
-        self.change("wallpaper", path)
-        self.refresh_theme()
+        helper = HOME / ".local/bin/tempered-wallpaper-apply"
+        result = run([str(helper), path], timeout=24)
+        if result and result.returncode == 0:
+            self.settings = load()
+            self.toast("Wallpaper applied")
+        else:
+            self.toast("Could not apply that wallpaper")
 
     def refresh_theme(self) -> None:
         result = run([str(THEME_BIN), str(self.settings["wallpaper"])], timeout=20)

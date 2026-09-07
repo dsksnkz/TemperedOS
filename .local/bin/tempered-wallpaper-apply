@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+wallpaper="${1:-}"
+kind="${2:-image}"
+theme_source="${3:-$wallpaper}"
+
+[[ -f "$wallpaper" ]] || {
+    printf 'Wallpaper not found: %s\n' "$wallpaper" >&2
+    exit 2
+}
+
+if [[ "$kind" == video ]]; then
+    waypaper --wallpaper "$wallpaper" --backend mpvpaper --monitor All --no-post-command
+else
+    pkill -x mpvpaper >/dev/null 2>&1 || true
+    waypaper --wallpaper "$wallpaper" --backend hyprpaper --monitor All --fill fill --no-post-command
+fi
+
+[[ -f "$theme_source" ]] && "$HOME/.local/bin/tempered-theme" "$theme_source" >/dev/null

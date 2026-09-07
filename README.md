@@ -13,6 +13,7 @@ context—not as decoration over every pixel.
 
 - A centered island occupying half the display instead of a full-width bar
 - Wallpaper-derived color with readable contrast and coordinated app themes
+- A Quickshell launcher and wallpaper browser—no Rofi menu in the interaction path
 - A connected “current” for workspaces, media, networking, sound and system load
 - A real settings application for appearance, island behavior, displays,
   sound routing, input, motion, networking, power, accessibility and privacy
@@ -24,8 +25,6 @@ context—not as decoration over every pixel.
 <summary>See the island and Settings</summary>
 
 ![Tempered OS current panel](assets/tempered-island.png)
-
-![Tempered OS Settings](assets/tempered-settings.png)
 
 </details>
 
@@ -47,10 +46,14 @@ installed.
 - `Super + Space` — application current
 - `Super + Esc` — dynamic island controls
 - `Super + I` — Tempered OS Settings
+- `Super + W` — wallpaper picker
+- `Super + S` — Zen Browser
 - `Super + Enter` — terminal
 - `Super + E` — files
 - `Super + Shift + S` — area capture
 - `Super + Shift + P` — power surface
 
-The default wallpaper is included only as a starting material. Choose any image
-in Tempered OS Settings and the desktop will redraw itself around it.
+The default wallpaper is only a starting point. Every wallpaper selection
+redraws the shell palette immediately. The wallpaper browser is adapted from
+[Magetsu's QS Wallpaper Picker](https://github.com/magetsu002/qs-wallpaper-picker)
+under its included MIT license.

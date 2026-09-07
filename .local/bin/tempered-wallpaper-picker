@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+picker="${XDG_DATA_HOME:-$HOME/.local/share}/tempered-os/qs-wallpaper-picker"
+wallpaper_dir="${QS_WALLPAPER_DIR:-$HOME/.config/wallpapers}"
+
+[[ -x "$picker/scripts/open_picker.sh" ]] || {
+    printf 'Tempered wallpaper picker is missing: %s\n' "$picker" >&2
+    exit 1
+}
+
+mkdir -p "$wallpaper_dir"
+export QS_WALLPAPER_DIR="$wallpaper_dir"
+export QS_WALLPAPER_ENABLE_ML4W=0
+exec "$picker/scripts/open_picker.sh"
