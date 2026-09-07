@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Tempered OS Boot
+Comment=Replay the Tempered OS droplet handoff
+Exec=tempered-boot
+Icon=weather-showers-symbolic
+Terminal=false
+Type=Application
+Categories=Utility;

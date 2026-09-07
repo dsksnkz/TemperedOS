@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+boot_qml="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/tempered-boot/boot.qml"
+[[ -f "$boot_qml" ]] || { printf 'Tempered boot animation is missing: %s\n' "$boot_qml" >&2; exit 1; }
+exec qs --no-duplicate --path "$boot_qml"

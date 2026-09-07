@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+shell="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/tempered/shell.qml"
+exec qs ipc --path "$shell" call tempered controls

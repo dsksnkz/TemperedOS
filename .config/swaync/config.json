@@ -1,0 +1,33 @@
+{
+  "$schema": "/etc/xdg/swaync/configSchema.json",
+  "ignore-gtk-theme": true,
+  "positionX": "right",
+  "positionY": "top",
+  "layer": "overlay",
+  "control-center-layer": "top",
+  "layer-shell": true,
+  "cssPriority": "user",
+  "control-center-margin-top": 72,
+  "control-center-margin-right": 14,
+  "control-center-margin-bottom": 14,
+  "control-center-width": 410,
+  "control-center-height": 660,
+  "notification-window-width": 400,
+  "fit-to-screen": true,
+  "keyboard-shortcuts": true,
+  "notification-grouping": true,
+  "relative-timestamps": true,
+  "transition-time": 180,
+  "timeout": 8,
+  "timeout-low": 4,
+  "timeout-critical": 0,
+  "image-visibility": "when-available",
+  "text-empty": "Nothing waiting",
+  "widgets": ["title", "dnd", "mpris", "notifications"],
+  "widget-config": {
+    "title": {"text": "Current", "clear-all-button": true, "button-text": "Release"},
+    "dnd": {"text": "Quiet current"},
+    "mpris": {"image-size": 72, "image-radius": 16},
+    "notifications": {"vexpand": true}
+  }
+}

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Tempered OS Settings
+Comment=Shape color, acrylic, motion, hardware and system behavior
+Exec=tempered-settings
+Icon=preferences-system-symbolic
+Terminal=false
+Type=Application
+Categories=Settings;
+Keywords=Tempered;settings;display;sound;wallpaper;mouse;keyboard;power;

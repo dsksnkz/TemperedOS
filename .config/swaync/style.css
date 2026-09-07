@@ -1,0 +1,17 @@
+@import url("tempered-colors.css");
+
+* { font-family: "Inter"; font-size: 12px; color: @tempered_fg_color; box-shadow: none; text-shadow: none; }
+.control-center { background: alpha(@tempered_surface_color, .76); border: 1px solid alpha(@tempered_border_color, .28); border-radius: 24px; }
+.control-center-list, .notification-row, .notification-content { background: transparent; }
+.notification-background { margin: 5px 7px; padding: 0; background: alpha(@tempered_surface_color, .76); border: 1px solid alpha(@tempered_border_color, .24); border-radius: 18px; }
+.notification { padding: 10px; background: transparent; }
+.notification-row:hover .notification-background { background: alpha(@tempered_accent_color, .12); }
+.summary { color: @tempered_fg_color; font-weight: 700; }
+.body, .time { color: @tempered_muted_color; }
+.close-button, .control-center button { color: @tempered_fg_color; background: alpha(@tempered_bg_color, .34); border: 1px solid alpha(@tempered_border_color, .18); border-radius: 12px; }
+.close-button:hover, .control-center button:hover { background: alpha(@tempered_accent_color, .22); }
+.widget-title, .widget-dnd, .widget-mpris { margin: 7px; padding: 10px; background: alpha(@tempered_bg_color, .30); border: 1px solid alpha(@tempered_border_color, .18); border-radius: 18px; }
+.widget-dnd switch { min-width: 38px; min-height: 21px; background: alpha(@tempered_muted_color, .25); border-radius: 12px; }
+.widget-dnd switch:checked { background: @tempered_accent_color; }
+trough { min-height: 4px; border-radius: 3px; background: alpha(@tempered_muted_color, .22); }
+trough highlight { background: @tempered_accent_color; }

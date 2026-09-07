@@ -1,0 +1,18 @@
+@import url("tempered-colors.css");
+
+window { background: alpha(@tempered_bg_color, .56); }
+button {
+    color: @tempered_fg_color;
+    background: alpha(@tempered_surface_color, .72);
+    border: 1px solid alpha(@tempered_border_color, .28);
+    border-radius: 24px;
+    margin: 14px;
+    font-family: "Inter";
+    font-size: 15px;
+    transition: all .18s ease-out;
+}
+button:hover, button:focus {
+    color: @tempered_bg_color;
+    background: @tempered_accent_color;
+    border-color: @tempered_accent_color;
+}
