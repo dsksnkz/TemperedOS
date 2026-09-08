@@ -133,6 +133,7 @@ def palette_from(path: Path) -> dict[str, str]:
 def emit_files(colors: dict[str, str], wallpaper: Path) -> None:
     payload = {**colors, "wallpaper": str(wallpaper)}
     atomic_text(PALETTE_FILE, json.dumps(payload, indent=2) + "\n")
+    atomic_text(CONFIG / "hypr/tempered-colors.lua", border_config(colors) + "\n")
 
     kitty = f'''foreground {colors["text"]}
 background {colors["background"]}
@@ -186,12 +187,21 @@ wallpaper {{
     atomic_text(Path("/tmp/qs_colors.json"), json.dumps(picker_colors) + "\n")
 
 
-def notify_desktop(colors: dict[str, str], wallpaper: Path) -> None:
+def border_config(colors: dict[str, str]) -> str:
     accent = colors["accent"].lstrip("#")
+    secondary = colors["accent2"].lstrip("#")
     border = colors["border"].lstrip("#")
+    return (
+        'hl.config({ general = { col = { '
+        f'active_border = {{ colors = {{ "rgba({accent}ee)", "rgba({secondary}dd)" }}, angle = 38 }}, '
+        f'inactive_border = "rgba({border}55)"'
+        ' } } })'
+    )
+
+
+def notify_desktop(colors: dict[str, str], wallpaper: Path) -> None:
     commands = [
-        ["hyprctl", "keyword", "general:col.active_border", f"rgba({accent}ee)"],
-        ["hyprctl", "keyword", "general:col.inactive_border", f"rgba({border}45)"],
+        ["hyprctl", "eval", border_config(colors)],
         ["hyprctl", "hyprpaper", "wallpaper", f",{wallpaper},cover"],
     ]
     for command in commands:

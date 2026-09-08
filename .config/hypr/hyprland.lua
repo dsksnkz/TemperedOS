@@ -28,6 +28,7 @@ hl.env("QT_QPA_PLATFORM", "wayland;xcb")
 hl.env("NIXOS_OZONE_WL", "1")
 
 hl.permission("/usr/(bin|local/bin)/grim", "screencopy", "allow")
+hl.permission("/usr/bin/hyprlock", "screencopy", "allow")
 hl.permission("/usr/(lib|libexec|lib64)/xdg-desktop-portal-hyprland", "screencopy", "allow")
 
 hl.config({
@@ -103,6 +104,11 @@ hl.config({
     render = { direct_scanout = false },
     xwayland = { force_zero_scaling = true },
 })
+
+-- Reapply the last wallpaper palette on every config reload.
+local palette_path = (os.getenv("XDG_CONFIG_HOME") or (os.getenv("HOME") .. "/.config")) .. "/hypr/tempered-colors.lua"
+local palette_chunk = loadfile(palette_path)
+if palette_chunk then palette_chunk() end
 
 hl.curve("tempered_soft", { type = "bezier", points = { { 0.22, 0.72 }, { 0.18, 1.0 } } })
 hl.curve("tempered_release", { type = "bezier", points = { { 0.08, 0.82 }, { 0.14, 1.0 } } })
