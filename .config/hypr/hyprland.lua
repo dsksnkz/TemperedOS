@@ -91,6 +91,7 @@ hl.config({
     dwindle = { preserve_split = true, smart_split = false },
     master = { new_status = "master" },
     misc = {
+        allow_session_lock_restore = true,
         force_default_wallpaper = 0,
         disable_hyprland_logo = true,
         disable_splash_rendering = true,
