@@ -42,6 +42,7 @@ ShellRoot {
     }
     readonly property var bluetoothAdapter: Bluetooth.defaultAdapter
     property var passwordNetwork: null
+    property real visualPhase: 0
     readonly property real motionScale: {
         const prefs = pulse.settings ?? ({})
         if (prefs.reduce_motion || prefs.animations === false)
@@ -96,6 +97,13 @@ ShellRoot {
         onTriggered: shell.run(command)
     }
 
+    Timer {
+        interval: 82
+        repeat: true
+        running: shell.pulse.playing === true
+        onTriggered: shell.visualPhase += 0.34
+    }
+
     IpcHandler {
         target: "tempered"
         function toggle(): void { shell.open("controls") }
@@ -116,7 +124,8 @@ ShellRoot {
             screen: modelData
             color: "transparent"
             implicitHeight: 470
-            exclusiveZone: 0
+            // Keep maximized and tiled windows below the island's resting edge.
+            exclusiveZone: Math.max(58, Math.min(92, (shell.pulse.settings?.island_height ?? 50) + 16))
             focusable: shell.sheetOpen
             WlrLayershell.namespace: "tempered-island"
 
@@ -206,7 +215,8 @@ ShellRoot {
                         Rectangle {
                             id: droplet
                             anchors.centerIn: parent
-                            width: 9 + 2 * Math.sin(Date.now() / 950)
+                            visible: !shell.pulse.playing
+                            width: 9
                             height: width
                             radius: width / 2
                             color: shell.accent
@@ -219,8 +229,27 @@ ShellRoot {
                             }
                         }
 
+                        Row {
+                            id: visualizer
+                            visible: shell.pulse.playing === true
+                            anchors.centerIn: parent
+                            spacing: 3
+                            Repeater {
+                                model: 9
+                                Rectangle {
+                                    required property int index
+                                    width: 3
+                                    height: 5 + 12 * Math.abs(Math.sin(shell.visualPhase + index * 0.72))
+                                    radius: 2
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    color: index % 2 ? shell.accent2 : shell.accent
+                                    Behavior on height { NumberAnimation { duration: 78; easing.type: Easing.OutCubic } }
+                                }
+                            }
+                        }
+
                         Text {
-                            anchors.right: droplet.left
+                            anchors.right: shell.pulse.playing ? visualizer.left : droplet.left
                             anchors.rightMargin: 12
                             anchors.verticalCenter: parent.verticalCenter
                             width: parent.width / 2 - 22
@@ -233,7 +262,7 @@ ShellRoot {
                             font.pixelSize: 10
                         }
                         Text {
-                            anchors.left: droplet.right
+                            anchors.left: shell.pulse.playing ? visualizer.right : droplet.right
                             anchors.leftMargin: 12
                             anchors.verticalCenter: parent.verticalCenter
                             width: parent.width / 2 - 22
@@ -265,15 +294,15 @@ ShellRoot {
                         }
 
                         Rectangle {
-                            width: 78; height: 32; radius: 16
+                            width: 112; height: 32; radius: 16
                             color: controlsHover.hovered ? Qt.rgba(shell.accent.r, shell.accent.g, shell.accent.b, 0.18) : "transparent"
                             HoverHandler { id: controlsHover }
                             TapHandler { onTapped: shell.open("controls") }
                             Row {
-                                anchors.centerIn: parent; spacing: 7
-                                Text { text: shell.pulse.network === "Offline" ? "󰖪" : "󰖩"; color: shell.fg; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 14 }
-                                Text { text: (shell.pulse.battery ?? -1) >= 0 ? shell.pulse.battery + "%" : (shell.pulse.cpu ?? 0) + "%"; color: shell.fg; font.family: "Inter"; font.pixelSize: 10; font.weight: Font.DemiBold }
-                                Text { text: shell.sheetOpen ? "󰅃" : "󰅀"; color: shell.muted; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12 }
+                                anchors.centerIn: parent; spacing: 10
+                                Item { width: 18; height: 28; Text { anchors.centerIn: parent; text: shell.pulse.network === "Offline" ? "󰖪" : "󰖩"; color: shell.fg; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 14 } }
+                                Item { width: 42; height: 28; Text { anchors.centerIn: parent; text: (shell.pulse.battery ?? -1) >= 0 ? shell.pulse.battery + "%" : (shell.pulse.cpu ?? 0) + "%"; color: shell.fg; font.family: "Inter"; font.pixelSize: 10; font.weight: Font.DemiBold } }
+                                Item { width: 16; height: 28; Text { anchors.centerIn: parent; text: shell.sheetOpen ? "󰅃" : "󰅀"; color: shell.muted; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12 } }
                             }
                         }
                     }

@@ -67,7 +67,7 @@ FloatingWindow {
 
     Rectangle {
         anchors.fill: parent
-        radius: 30
+        radius: 20
         color: Qt.rgba(root.surface.r, root.surface.g, root.surface.b, 0.93)
         border.width: 1
         border.color: Qt.rgba(root.border.r, root.border.g, root.border.b, 0.30)
@@ -75,7 +75,7 @@ FloatingWindow {
         Rectangle {
             anchors.fill: parent
             anchors.margins: 1
-            radius: 29
+            radius: 19
             gradient: Gradient {
                 orientation: Gradient.Horizontal
                 GradientStop { position: 0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.13) }

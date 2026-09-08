@@ -10,9 +10,20 @@ button {
     font-family: "Inter";
     font-size: 15px;
     transition: all .18s ease-out;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 25%;
+    padding-top: 76px;
 }
 button:hover, button:focus {
     color: @tempered_bg_color;
-    background: @tempered_accent_color;
+    background-color: @tempered_accent_color;
     border-color: @tempered_accent_color;
 }
+
+#lock { background-image: image(url("/usr/share/wlogout/icons/lock.png")); }
+#logout { background-image: image(url("/usr/share/wlogout/icons/logout.png")); }
+#suspend { background-image: image(url("/usr/share/wlogout/icons/suspend.png")); }
+#hibernate { background-image: image(url("/usr/share/wlogout/icons/hibernate.png")); }
+#reboot { background-image: image(url("/usr/share/wlogout/icons/reboot.png")); }
+#shutdown { background-image: image(url("/usr/share/wlogout/icons/shutdown.png")); }

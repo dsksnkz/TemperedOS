@@ -45,7 +45,7 @@ hl.config({
     },
     decoration = {
         rounding = 18,
-        rounding_power = 2.35,
+        rounding_power = 3.0,
         active_opacity = 1.0,
         inactive_opacity = 0.96,
         fullscreen_opacity = 1.0,
@@ -125,8 +125,8 @@ hl.layer_rule({ name = "tempered-island-glass", match = { namespace = "^tempered
 hl.layer_rule({ name = "tempered-boot-clean", match = { namespace = "^tempered-boot$" }, no_anim = true })
 hl.layer_rule({ name = "notifications-glass", match = { namespace = "^swaync-.*" }, blur = true, ignore_alpha = 0.12 })
 
-hl.window_rule({ name = "settings-float", match = { class = "io.github.dsksnkz.TemperedOS.Settings" }, float = true, size = "1040 720", center = true })
-hl.window_rule({ name = "launcher-float", match = { class = "io.github.dsksnkz.TemperedOS.Launcher" }, float = true, size = "780 520", center = true })
+hl.window_rule({ name = "settings-float", match = { class = "io.github.dsksnkz.TemperedOS.Settings" }, float = true, size = "1040 720", center = true, rounding = 20, rounding_power = 3.0 })
+hl.window_rule({ name = "launcher-float", match = { class = "io.github.dsksnkz.TemperedOS.Launcher" }, float = true, size = "780 520", center = true, rounding = 20, rounding_power = 3.0, border_size = 0 })
 hl.window_rule({ name = "wallpaper-float", match = { title = "^wallpaper-picker$" }, float = true, size = "1500 620", center = true })
 hl.window_rule({ name = "clipse-float", match = { class = "clipse" }, float = true, size = "640 680", center = true })
 hl.window_rule({ name = "picture-in-picture", match = { title = "^(Picture-in-Picture)$" }, float = true, pin = true, keep_aspect_ratio = true })
@@ -138,7 +138,9 @@ for workspace = 1, 6 do
 end
 
 hl.bind(mod .. " + RETURN", hl.dsp.exec_cmd(terminal))
-hl.bind(mod .. " + W", hl.dsp.exec_cmd("~/.local/bin/tempered-wallpaper-picker"))
+hl.bind(mod .. " + W", hl.dsp.exec_cmd(terminal))
+hl.bind(mod .. " + B", hl.dsp.exec_cmd("~/.local/bin/tempered-wallpaper-picker"))
+hl.bind(mod .. " + A", hl.dsp.exec_cmd("zeditor"))
 hl.bind(mod .. " + E", hl.dsp.exec_cmd(files))
 hl.bind(mod .. " + S", hl.dsp.exec_cmd("flatpak run app.zen_browser.zen"))
 hl.bind(mod .. " + SPACE", hl.dsp.exec_cmd(launcher))

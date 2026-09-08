@@ -12,7 +12,7 @@ context—not as decoration over every pixel.
 ## What makes it different
 
 - A centered island occupying half the display instead of a full-width bar
-- Wallpaper-derived color with readable contrast and coordinated app themes
+- Dark wallpaper-derived surfaces with lively secondary accents and readable contrast
 - A Quickshell launcher and wallpaper browser—no Rofi menu in the interaction path
 - A connected “current” for workspaces, media, networking, sound and system load
 - A real settings application for appearance, island behavior, displays,
@@ -46,7 +46,9 @@ installed.
 - `Super + Space` — application current
 - `Super + Esc` — dynamic island controls
 - `Super + I` — Tempered OS Settings
-- `Super + W` — wallpaper picker
+- `Super + W` — Kitty terminal
+- `Super + B` — wallpaper picker
+- `Super + A` — Zed
 - `Super + S` — Zen Browser
 - `Super + Enter` — terminal
 - `Super + E` — files

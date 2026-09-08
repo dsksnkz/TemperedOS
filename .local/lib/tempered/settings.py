@@ -34,6 +34,7 @@ DEFAULTS: dict[str, object] = {
     "island_compact": False,
     "show_seconds": False,
     "rounding": 18,
+    "rounding_power": 3.0,
     "gaps_in": 6,
     "gaps_out": 10,
     "blur": True,
@@ -169,6 +170,7 @@ def apply_idle_timeout(value: float | int) -> None:
 def apply_all(settings: dict[str, object]) -> None:
     values = {
         "decoration:rounding": settings["rounding"],
+        "decoration:rounding_power": settings["rounding_power"],
         "general:gaps_in": settings["gaps_in"],
         "general:gaps_out": settings["gaps_out"],
         "decoration:blur:enabled": settings["blur"],
@@ -250,6 +252,11 @@ class TemperedSettings(Adw.Application):
         toolbar = Adw.ToolbarView()
         header = Adw.HeaderBar()
         header.set_title_widget(Gtk.Label(label="Tempered OS"))
+        apply_button = Gtk.Button(label="Apply")
+        apply_button.add_css_class("suggested-action")
+        apply_button.set_tooltip_text("Apply all customization")
+        apply_button.connect("clicked", lambda *_args: self.reapply())
+        header.pack_end(apply_button)
         header.pack_end(self.header_button("view-refresh-symbolic", self.refresh_theme, "Refresh wallpaper colors"))
         toolbar.add_top_bar(header)
 
@@ -280,18 +287,28 @@ class TemperedSettings(Adw.Application):
 
     def install_css(self) -> None:
         colors = palette()
+        icon_theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default())
+        adwaita_symbols = Path("/usr/share/icons/Adwaita/symbolic")
+        if adwaita_symbols.is_dir():
+            for category in adwaita_symbols.iterdir():
+                if category.is_dir():
+                    icon_theme.add_search_path(str(category))
         Adw.StyleManager.get_default().set_color_scheme(
             Adw.ColorScheme.FORCE_DARK if colors.get("dark", True) else Adw.ColorScheme.FORCE_LIGHT
         )
         provider = Gtk.CssProvider()
         provider.load_from_string(f'''
             .tempered-window {{ background: {colors["background"]}; }}
-            .tempered-window row, .tempered-window label, .tempered-window entry {{ color: {colors["text"]}; }}
+            .tempered-window, .tempered-window row, .tempered-window label, .tempered-window entry,
+            .tempered-window button, .tempered-window dropdown {{ color: {colors["text"]}; }}
             .tempered-window .dim-label {{ color: {colors["muted"]}; }}
             .tempered-window .boxed-list {{ background: alpha({colors["surface"]}, .76); }}
             .tempered-sidebar {{ background: alpha({colors["surface"]}, .80); border-right: 1px solid alpha({colors["border"]}, .20); }}
             .tempered-sidebar row {{ margin: 2px 10px; border-radius: 13px; padding: 3px; }}
             .tempered-sidebar row:selected {{ background: alpha({colors["accent"]}, .22); color: {colors["text"]}; }}
+            .tempered-sidebar image {{ color: {colors["text"]}; }}
+            .tempered-window popover contents {{ background: {colors["surfaceRaised"]}; color: {colors["text"]}; border-radius: 16px; }}
+            .tempered-window dropdown button {{ min-width: 220px; }}
             .tempered-hero {{ background: linear-gradient(120deg, alpha({colors["accent"]}, .28), alpha({colors["accent2"]}, .18)); border: 1px solid alpha({colors["border"]}, .32); border-radius: 22px; padding: 18px; }}
             preferencesgroup > box {{ border-radius: 18px; }}
             scale trough highlight {{ background: {colors["accent"]}; }}
@@ -302,10 +319,12 @@ class TemperedSettings(Adw.Application):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         box.set_size_request(230, -1)
         box.add_css_class("tempered-sidebar")
-        mark = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        mark = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=9)
         mark.set_margin_top(16); mark.set_margin_start(18); mark.set_margin_bottom(2)
+        gear = Gtk.Image.new_from_icon_name("emblem-system-symbolic")
+        gear.set_pixel_size(18)
         title = Gtk.Label(label="Settings", xalign=0); title.add_css_class("title-2")
-        mark.append(title); box.append(mark)
+        mark.append(gear); mark.append(title); box.append(mark)
         search = Gtk.SearchEntry(placeholder_text="Search")
         search.set_margin_start(12); search.set_margin_end(12); search.set_margin_bottom(4)
         box.append(search)
@@ -333,7 +352,11 @@ class TemperedSettings(Adw.Application):
         for name, label, icon in entries:
             row = Adw.ActionRow(title=label)
             row.set_name(name)
-            row.add_prefix(Gtk.Image.new_from_icon_name(icon))
+            icon_theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default())
+            safe_icon = icon if icon_theme.has_icon(icon) else "preferences-system-symbolic"
+            image = Gtk.Image.new_from_icon_name(safe_icon)
+            image.set_pixel_size(16)
+            row.add_prefix(image)
             nav.append(row)
         nav.connect("row-selected", lambda _list, row: self.stack.set_visible_child_name(row.get_name()) if row else None)
         nav.set_filter_func(lambda row: search.get_text().casefold() in row.get_title().casefold())
@@ -403,6 +426,7 @@ class TemperedSettings(Adw.Application):
         self.switch(group, "adaptive_color", "Wallpaper colors", "Regenerate the interface palette whenever the wallpaper changes")
         self.scale(group, "glass_opacity", "Glass density", "Lower is airier; higher separates controls from busy images", 45, 92, 1)
         self.scale(group, "rounding", "Corner character", "Shared by windows, menus and shell surfaces", 6, 28, 1, lambda value: keyword("decoration:rounding", round(value)))
+        self.scale(group, "rounding_power", "Corner continuity", "Smoother G2-style corner curvature", 2, 4, 0.1, lambda value: keyword("decoration:rounding_power", value))
         self.switch(group, "blur", "Acrylic blur", "Blur transparent windows and Tempered shell layers", "decoration:blur:enabled")
         self.scale(group, "blur_size", "Blur reach", "How far the acrylic samples the wallpaper", 2, 16, 1, lambda value: keyword("decoration:blur:size", round(value)))
         self.scale(group, "blur_passes", "Blur refinement", "More passes look smoother and use more GPU", 1, 5, 1, lambda value: keyword("decoration:blur:passes", round(value)))
@@ -444,20 +468,20 @@ class TemperedSettings(Adw.Application):
         self.scale(group, "output_volume", "Output volume", "Current default output", 0, 125, 1, lambda value: run(["wpctl", "set-volume", "-l", "1.25", "@DEFAULT_AUDIO_SINK@", f"{round(value)}%"]))
         sink_values = sinks()
         if sink_values:
-            names = [label for _name, label in sink_values]
+            names = [self.compact_device_name(label) for _name, label in sink_values]
             row = Adw.ActionRow(title="Sound output", subtitle="Choose speakers, IEMs or Bluetooth")
             selector = Gtk.DropDown.new_from_strings(names)
-            selector.set_size_request(360, -1); selector.set_valign(Gtk.Align.CENTER)
+            selector.set_size_request(280, -1); selector.set_valign(Gtk.Align.CENTER)
             default_sink = output(["pactl", "get-default-sink"])
             selector.set_selected(next((index for index, item in enumerate(sink_values) if item[0] == default_sink), 0))
             selector.connect("notify::selected", lambda widget, _param: run(["pactl", "set-default-sink", sink_values[widget.get_selected()][0]]))
             row.add_suffix(selector); group.add(row)
         source_values = sources()
         if source_values:
-            labels = [label for _name, label in source_values]
+            labels = [self.compact_device_name(label) for _name, label in source_values]
             row = Adw.ActionRow(title="Microphone", subtitle="Choose the recording input")
             selector = Gtk.DropDown.new_from_strings(labels)
-            selector.set_size_request(360, -1); selector.set_valign(Gtk.Align.CENTER)
+            selector.set_size_request(280, -1); selector.set_valign(Gtk.Align.CENTER)
             default_source = output(["pactl", "get-default-source"])
             selector.set_selected(next((index for index, item in enumerate(source_values) if item[0] == default_source), 0))
             selector.connect("notify::selected", lambda widget, _param: run(["pactl", "set-default-source", source_values[widget.get_selected()][0]]))
@@ -631,6 +655,12 @@ class TemperedSettings(Adw.Application):
     def set_brightness(self, value: float) -> None:
         helper = HOME / ".local/bin/tempered-brightness"
         run([str(helper), "set", str(round(value))], timeout=10)
+
+    @staticmethod
+    def compact_device_name(label: str) -> str:
+        cleaned = re.sub(r"\s+", " ", label).strip()
+        cleaned = cleaned.replace("High Definition Audio Controller ", "")
+        return cleaned if len(cleaned) <= 42 else cleaned[:39].rstrip() + "…"
 
     def reapply(self) -> None:
         apply_all(self.settings); self.toast("Saved settings reapplied")

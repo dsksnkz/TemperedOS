@@ -2,7 +2,13 @@
 set -euo pipefail
 
 picker="${XDG_DATA_HOME:-$HOME/.local/share}/tempered-os/qs-wallpaper-picker"
-wallpaper_dir="${QS_WALLPAPER_DIR:-$HOME/.config/wallpapers}"
+waypaper_config="${XDG_CONFIG_HOME:-$HOME/.config}/waypaper/config.ini"
+configured_dir=""
+if [[ -f "$waypaper_config" ]]; then
+    configured_dir="$(sed -nE 's/^[[:space:]]*folder[[:space:]]*=[[:space:]]*(.*)$/\1/p' "$waypaper_config" | head -n 1)"
+fi
+configured_dir="${configured_dir/#\~/$HOME}"
+wallpaper_dir="${QS_WALLPAPER_DIR:-${configured_dir:-$HOME/.config/wallpapers}}"
 
 [[ -x "$picker/scripts/open_picker.sh" ]] || {
     printf 'Tempered wallpaper picker is missing: %s\n' "$picker" >&2

@@ -95,12 +95,14 @@ def palette_from(path: Path) -> dict[str, str]:
     accent_pool = [entry for entry in swatches if 0.16 < luminance(entry[1]) < 0.78]
     accent_source = max(accent_pool or swatches, key=lambda item: item[0] * (0.42 + chroma(item[1]) * 2.8))[1]
 
-    # Tempered stays translucent and readable even when the wallpaper is bright.
-    source_is_dark = luminance(dominant) < 0.43
-    accent = energize(accent_source, source_is_dark)
-    base = mix(dominant, (8, 12, 18) if source_is_dark else (246, 247, 250), 0.74)
-    text = (241, 246, 252) if luminance(base) < 0.36 else (20, 27, 34)
-    muted = mix(text, base, 0.42)
+    # Wallpaper hue is material, not the canvas. Tempered always uses a dark,
+    # high-contrast foundation and reserves brighter extracted colors for state.
+    accent = energize(accent_source, True)
+    base = mix(dominant, (6, 9, 14), 0.90)
+    if luminance(base) > 0.025:
+        base = mix(base, (4, 7, 11), 0.30)
+    text = (242, 247, 252)
+    muted = mix(text, base, 0.48)
     surface = mix(base, accent, 0.10)
     raised = mix(base, text, 0.09)
     border = mix(accent, text, 0.40)
@@ -112,7 +114,7 @@ def palette_from(path: Path) -> dict[str, str]:
         )[1]
     else:
         accent_2 = rotate_hue(accent, 34)
-    accent_2 = energize(accent_2, source_is_dark)
+    accent_2 = energize(accent_2, True)
 
     return {
         "background": rgb_hex(base),
@@ -123,8 +125,8 @@ def palette_from(path: Path) -> dict[str, str]:
         "accent": rgb_hex(accent),
         "accent2": rgb_hex(accent_2),
         "border": rgb_hex(border),
-        "danger": "#ff6b78" if source_is_dark else "#a82537",
-        "dark": source_is_dark,
+        "danger": "#ff6b78",
+        "dark": True,
     }
 
 
@@ -195,6 +197,17 @@ def notify_desktop(colors: dict[str, str], wallpaper: Path) -> None:
     for command in commands:
         try:
             subprocess.run(command, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=4)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    for schema_key, value in (
+        (("org.gnome.desktop.interface", "color-scheme"), "prefer-dark"),
+        (("org.gnome.desktop.interface", "gtk-theme"), "adw-gtk3-dark"),
+    ):
+        try:
+            subprocess.run(
+                ["gsettings", "set", schema_key[0], schema_key[1], value],
+                check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=3,
+            )
         except (OSError, subprocess.TimeoutExpired):
             pass
     shell = CONFIG / "quickshell/tempered/shell.qml"
