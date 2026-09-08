@@ -17,6 +17,25 @@ FloatingWindow {
     implicitHeight: 520
 
     property int mode: 0
+    property var resolvedIcons: ({})
+
+    function applicationIcon(name) {
+        if (!name) return Quickshell.shellPath("application.svg")
+        if (name.startsWith("/")) return "file://" + name
+        if (name.startsWith("file://")) return name
+        return resolvedIcons[name] || Quickshell.iconPath(name, true) || Quickshell.shellPath("application.svg")
+    }
+
+    Process {
+        running: true
+        command: ["python3", Quickshell.shellPath("icons.py")]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try { root.resolvedIcons = JSON.parse(this.text) }
+                catch (error) { console.warn("Icon lookup unavailable:", error) }
+            }
+        }
+    }
     property var palette: ({
         background: "#121923", surface: "#202b39", surfaceRaised: "#2d3948",
         text: "#eef5ff", muted: "#9eabbc", accent: "#7ebeff",
@@ -172,11 +191,13 @@ FloatingWindow {
                         Rectangle {
                             width: 38; height: 38; radius: 12
                             color: Qt.rgba(root.raised.r, root.raised.g, root.raised.b, 0.78)
-                            IconImage {
+                            Image {
                                 visible: root.mode === 0
                                 anchors.centerIn: parent
-                                implicitSize: 25
-                                source: root.mode === 0 ? Quickshell.iconPath(modelData.icon) : ""
+                                width: 25; height: 25
+                                fillMode: Image.PreserveAspectFit
+                                source: root.mode === 0 ? root.applicationIcon(modelData.icon) : ""
+                                onStatusChanged: if (status === Image.Error) source = Quickshell.shellPath("application.svg")
                             }
                             Text { visible: root.mode === 1; anchors.centerIn: parent; text: "󰖲"; color: root.accent; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 15 }
                         }
