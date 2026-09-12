@@ -85,6 +85,7 @@
     background: alpha(@tempered_surface, .86);
     border: 1px solid alpha(@tempered_border, .13);
     border-radius: 16px;
+    margin-top: 10px;
     padding: 14px;
 }
 
