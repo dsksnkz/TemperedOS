@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Logical pixels, sized to fit the smallest connected display.
+width=1280
+height=720
+if dimensions=$(hyprctl -j monitors 2>/dev/null | jq -er '
+    if length > 0 then
+        [([.[] | (.width / .scale | floor)] | min),
+         ([.[] | (.height / .scale | floor)] | min)] | @tsv
+    else empty end' 2>/dev/null); then
+    read -r width height <<< "$dimensions"
+fi
+columns=3
+panel_width=660
+panel_height=380
+if ((width < 620)); then
+    columns=2
+    panel_width=440
+    panel_height=540
+fi
+side=$(( (width - panel_width) / 2 ))
+vertical=$(( (height - panel_height) / 2 ))
+((side >= 12)) || side=12
+((vertical >= 12)) || vertical=12
+exec wlogout --no-span --buttons-per-row "$columns" \
+    --margin-left "$side" --margin-right "$side" \
+    --margin-top "$vertical" --margin-bottom "$vertical" "$@"

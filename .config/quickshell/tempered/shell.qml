@@ -399,7 +399,7 @@ ShellRoot {
                                 Layout.preferredWidth: 154
                                 spacing: 10
                                 GlassAction { Layout.fillWidth: true; glyph: "󰌾"; label: "Lock"; detail: "Secure session"; foreground: shell.fg; muted: shell.muted; accent: shell.accent; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.launch("hyprlock") }
-                                GlassAction { Layout.fillWidth: true; glyph: "󰐥"; label: "Power"; detail: "Session options"; foreground: shell.fg; muted: shell.muted; accent: shell.accent2; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.launch("wlogout") }
+                                GlassAction { Layout.fillWidth: true; glyph: "󰐥"; label: "Power"; detail: "Session options"; foreground: shell.fg; muted: shell.muted; accent: shell.accent2; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.launch("tempered-power") }
                                 Text { text: "CPU " + (shell.pulse.cpu ?? 0) + "%  ·  RAM " + (shell.pulse.memory ?? 0) + "%"; color: shell.muted; font.family: "JetBrains Mono"; font.pixelSize: 9 }
                             }
                         }

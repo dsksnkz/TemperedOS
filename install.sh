@@ -26,7 +26,7 @@ managed=(
     .config/swaync .config/wlogout .config/gtk-3.0
     .config/gtk-4.0 .config/kitty .config/tempered .local/lib/tempered
     .local/bin/tempered-theme .local/bin/tempered-settings
-    .local/bin/tempered-control .local/bin/tempered-capture
+    .local/bin/tempered-control .local/bin/tempered-capture .local/bin/tempered-power
     .local/bin/tempered-brightness .local/bin/tempered-boot
     .local/bin/tempered-launcher .local/bin/tempered-wallpaper-apply
     .local/bin/tempered-wallpaper-picker .local/share/tempered-os
