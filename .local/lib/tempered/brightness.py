@@ -15,6 +15,7 @@ from pathlib import Path
 CACHE_DIR = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "tempered-os"
 BUS_FILE = CACHE_DIR / "ddc-bus"
 LOCK_FILE = CACHE_DIR / "brightness.lock"
+VALUE_FILE = CACHE_DIR / "brightness-value"
 MINIMUM = 5
 
 
@@ -110,6 +111,7 @@ def main() -> int:
 
         action = sys.argv[1] if len(sys.argv) > 1 else "get"
         if action == "get":
+            VALUE_FILE.write_text(f"{current}\n", encoding="utf-8")
             print(current)
             return 0
         try:
@@ -127,6 +129,7 @@ def main() -> int:
         if not set_value(bus, target):
             print("Could not set monitor brightness", file=sys.stderr)
             return 1
+        VALUE_FILE.write_text(f"{target}\n", encoding="utf-8")
         print(target)
         return 0
 

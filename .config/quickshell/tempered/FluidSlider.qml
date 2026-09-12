@@ -2,12 +2,15 @@ import QtQuick
 
 Item {
     id: root
-    property real value: 0.5
+    property real modelValue: 0.5
+    property real visualValue: modelValue
     property string glyph: ""
     property color foreground: "white"
     property color accent: "#87bfff"
     property real motionScale: 1
     signal moved(real value)
+
+    onModelValueChanged: if (!drag.active) visualValue = modelValue
 
     implicitWidth: 220
     implicitHeight: 32
@@ -33,15 +36,15 @@ Item {
         color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.12)
 
         Rectangle {
-            width: Math.max(height, parent.width * Math.max(0, Math.min(1, root.value)))
+            width: Math.max(height, parent.width * Math.max(0, Math.min(1, root.visualValue)))
             height: parent.height
             radius: parent.radius
             color: root.accent
-            Behavior on width { NumberAnimation { duration: Math.round(130 * root.motionScale); easing.type: Easing.OutCubic } }
+            Behavior on width { NumberAnimation { duration: Math.round(55 * root.motionScale); easing.type: Easing.OutCubic } }
         }
 
         Rectangle {
-            x: Math.max(0, Math.min(parent.width - width, parent.width * root.value - width / 2))
+            x: Math.max(0, Math.min(parent.width - width, parent.width * root.visualValue - width / 2))
             anchors.verticalCenter: parent.verticalCenter
             width: drag.active ? 16 : 12
             height: width
@@ -57,8 +60,8 @@ Item {
             onPressed: update(mouse.x)
             onPositionChanged: if (pressed) update(mouse.x)
             function update(px) {
-                root.value = Math.max(0, Math.min(1, px / width))
-                root.moved(root.value)
+                root.visualValue = Math.max(0, Math.min(1, px / width))
+                root.moved(root.visualValue)
             }
         }
     }

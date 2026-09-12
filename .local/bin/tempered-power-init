@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+command -v powerprofilesctl >/dev/null || exit 0
+sleep 1
+settings_file="${XDG_CONFIG_HOME:-$HOME/.config}/tempered/settings.json"
+desired="$(jq -r '.power_profile // "balanced"' "$settings_file" 2>/dev/null || printf balanced)"
+case "$desired" in
+    power-saver|balanced|performance) ;;
+    *) desired=balanced ;;
+esac
+
+# Some laptop firmware reports balanced after boot without applying its quiet
+# fan curve. A short transition reproduces the reliable manual recovery.
+if [[ "$desired" == balanced && "$(powerprofilesctl get 2>/dev/null)" == balanced ]]; then
+    powerprofilesctl set power-saver
+    sleep 0.35
+fi
+powerprofilesctl set "$desired"

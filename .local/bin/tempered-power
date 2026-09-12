@@ -12,8 +12,8 @@ if dimensions=$(hyprctl -j monitors 2>/dev/null | jq -er '
     read -r width height <<< "$dimensions"
 fi
 columns=3
-panel_width=660
-panel_height=380
+panel_width=620
+panel_height=350
 if ((width < 620)); then
     columns=2
     panel_width=440
@@ -23,6 +23,12 @@ side=$(( (width - panel_width) / 2 ))
 vertical=$(( (height - panel_height) / 2 ))
 ((side >= 12)) || side=12
 ((vertical >= 12)) || vertical=12
+if pkill -x wlogout 2>/dev/null; then
+    for _attempt in {1..12}; do
+        pgrep -x wlogout >/dev/null || break
+        sleep 0.01
+    done
+fi
 exec wlogout --no-span --buttons-per-row "$columns" \
     --margin-left "$side" --margin-right "$side" \
     --margin-top "$vertical" --margin-bottom "$vertical" "$@"

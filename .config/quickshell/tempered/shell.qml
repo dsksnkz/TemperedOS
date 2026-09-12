@@ -69,6 +69,8 @@ ShellRoot {
         launchDelay.restart()
     }
 
+    function powerMenu() { launch("~/.local/bin/tempered-power") }
+
     function activateWorkspace(workspaceId) {
         const spaces = Hyprland.workspaces.values
         for (let index = 0; index < spaces.length; index++) {
@@ -93,7 +95,7 @@ ShellRoot {
     Timer {
         id: launchDelay
         property string command: ""
-        interval: 120
+        interval: 45
         onTriggered: shell.run(command)
     }
 
@@ -113,6 +115,7 @@ ShellRoot {
         function bluetooth(): void { shell.open("bluetooth") }
         function recolor(): void { paletteReload.running = true }
         function close(): void { shell.sheetOpen = false }
+        function power(): void { shell.powerMenu() }
     }
 
     Variants {
@@ -334,12 +337,17 @@ ShellRoot {
 
                         RowLayout {
                             Layout.fillWidth: true
-                            Text {
-                                text: shell.sheet === "wifi" ? "Wi-Fi" : shell.sheet === "bluetooth" ? "Bluetooth" : shell.sheet === "media" ? "Now playing" : "Controls"
-                                color: shell.fg
-                                font.family: "Inter"
-                                font.pixelSize: 17
-                                font.weight: Font.DemiBold
+                            Rectangle {
+                                width: 30; height: 30; radius: 15
+                                color: Qt.rgba(shell.accent.r, shell.accent.g, shell.accent.b, 0.22)
+                                border.width: 1
+                                border.color: Qt.rgba(shell.accent.r, shell.accent.g, shell.accent.b, 0.48)
+                                Text { anchors.centerIn: parent; text: String(shell.pulse.user ?? "T").charAt(0).toUpperCase(); color: shell.fg; font.family: "Inter"; font.pixelSize: 13; font.weight: Font.DemiBold }
+                            }
+                            ColumnLayout {
+                                spacing: 0
+                                Text { text: shell.sheet === "controls" ? (shell.pulse.user ?? "You") : shell.sheet === "wifi" ? "Wi-Fi" : shell.sheet === "bluetooth" ? "Bluetooth" : "Now playing"; color: shell.fg; font.family: "Inter"; font.pixelSize: 14; font.weight: Font.DemiBold }
+                                Text { text: shell.sheet === "controls" ? "Your Tempered OS" : "Tempered OS"; color: shell.muted; font.family: "Inter"; font.pixelSize: 9 }
                             }
                             Text {
                                 Layout.fillWidth: true
@@ -364,7 +372,10 @@ ShellRoot {
                             spacing: 16
 
                             ColumnLayout {
-                                Layout.preferredWidth: 236
+                                Layout.minimumWidth: 220
+                                Layout.preferredWidth: 220
+                                Layout.maximumWidth: 220
+                                Layout.fillWidth: false
                                 spacing: 10
                                 GlassAction { Layout.fillWidth: true; glyph: "󰖩"; label: shell.pulse.network ?? "Wi-Fi"; detail: "Networks"; foreground: shell.fg; muted: shell.muted; accent: shell.accent; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.open("wifi") }
                                 GlassAction { Layout.fillWidth: true; glyph: "󰂯"; label: "Bluetooth"; detail: "Devices"; foreground: shell.fg; muted: shell.muted; accent: shell.accent; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.open("bluetooth") }
@@ -373,34 +384,58 @@ ShellRoot {
 
                             Rectangle { Layout.fillHeight: true; width: 1; color: Qt.rgba(shell.border.r, shell.border.g, shell.border.b, 0.14) }
 
-                            ColumnLayout {
+                            Rectangle {
+                                Layout.minimumWidth: 360
                                 Layout.fillWidth: true
-                                spacing: 10
-                                FluidSlider {
-                                    Layout.fillWidth: true; glyph: shell.pulse.muted ? "󰖁" : "󰕾"; motionScale: shell.motionScale
-                                    value: (shell.pulse.volume ?? 0) / 100; foreground: shell.fg; accent: shell.accent
-                                    onMoved: value => shell.run("wpctl set-volume -l 1.25 @DEFAULT_AUDIO_SINK@ " + Math.round(value * 100) + "%")
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    GlassAction { Layout.fillWidth: true; glyph: shell.pulse.playing ? "󰏤" : "󰐊"; label: shell.pulse.playing ? "Pause" : "Play"; detail: shell.pulse.title || "No active player"; foreground: shell.fg; muted: shell.muted; accent: shell.accent; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.run("playerctl play-pause") }
-                                    GlassAction { Layout.fillWidth: true; glyph: "󰒓"; label: "Settings"; detail: "System controls"; foreground: shell.fg; muted: shell.muted; accent: shell.accent2; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.launch("tempered-settings") }
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    GlassAction { Layout.fillWidth: true; glyph: "󰹑"; label: "Capture"; detail: "Select an area"; foreground: shell.fg; muted: shell.muted; accent: shell.accent; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.launch("tempered-capture") }
-                                    GlassAction { Layout.fillWidth: true; glyph: "󰀻"; label: "Orbit Apps"; detail: "Installed software"; foreground: shell.fg; muted: shell.muted; accent: shell.accent2; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.launch("orbitos-apps") }
+                                Layout.fillHeight: true
+                                radius: 22
+                                color: Qt.rgba(shell.raised.r, shell.raised.g, shell.raised.b, 0.42)
+                                border.width: 1
+                                border.color: Qt.rgba(shell.border.r, shell.border.g, shell.border.b, 0.14)
+
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: 14
+                                    spacing: 10
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        Text { text: "Main controls"; color: shell.fg; font.family: "Inter"; font.pixelSize: 12; font.weight: Font.DemiBold; Layout.fillWidth: true }
+                                        Text { text: "CPU " + (shell.pulse.cpu ?? 0) + "%  ·  RAM " + (shell.pulse.memory ?? 0) + "%"; color: shell.muted; font.family: "JetBrains Mono"; font.pixelSize: 8 }
+                                    }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 14
+                                        FluidSlider {
+                                            Layout.fillWidth: true; glyph: shell.pulse.muted ? "󰖁" : "󰕾"; motionScale: shell.motionScale
+                                            modelValue: (shell.pulse.volume ?? 0) / 100; foreground: shell.fg; accent: shell.accent
+                                            onMoved: value => shell.run("wpctl set-volume -l 1.25 @DEFAULT_AUDIO_SINK@ " + Math.round(value * 100) + "%")
+                                        }
+                                        FluidSlider {
+                                            Layout.fillWidth: true; glyph: "󰃠"; motionScale: shell.motionScale
+                                            modelValue: (shell.pulse.brightness ?? 50) / 100; foreground: shell.fg; accent: shell.accent2
+                                            onMoved: value => shell.run("~/.local/bin/tempered-brightness set " + Math.round(value * 100))
+                                        }
+                                    }
+                                    GlassAction { Layout.fillWidth: true; glyph: shell.pulse.playing ? "󰏤" : "󰐊"; label: shell.pulse.playing ? (shell.pulse.title || "Pause") : "Play"; detail: shell.pulse.playing ? (shell.pulse.artist || "Now playing") : "No active player"; foreground: shell.fg; muted: shell.muted; accent: shell.accent; surface: shell.surface; motionScale: shell.motionScale; onTriggered: shell.run("playerctl play-pause") }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        GlassAction { Layout.fillWidth: true; glyph: "󰒓"; label: "Settings"; detail: "Make it yours"; foreground: shell.fg; muted: shell.muted; accent: shell.accent2; surface: shell.surface; motionScale: shell.motionScale; onTriggered: shell.launch("~/.local/bin/tempered-settings") }
+                                        GlassAction { Layout.fillWidth: true; glyph: "󰹑"; label: "Capture"; detail: "Select an area"; foreground: shell.fg; muted: shell.muted; accent: shell.accent; surface: shell.surface; motionScale: shell.motionScale; onTriggered: shell.launch("~/.local/bin/tempered-capture") }
+                                    }
                                 }
                             }
 
                             Rectangle { Layout.fillHeight: true; width: 1; color: Qt.rgba(shell.border.r, shell.border.g, shell.border.b, 0.14) }
 
                             ColumnLayout {
+                                Layout.minimumWidth: 154
                                 Layout.preferredWidth: 154
+                                Layout.maximumWidth: 154
+                                Layout.fillWidth: false
                                 spacing: 10
                                 GlassAction { Layout.fillWidth: true; glyph: "󰌾"; label: "Lock"; detail: "Secure session"; foreground: shell.fg; muted: shell.muted; accent: shell.accent; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.launch("hyprlock") }
-                                GlassAction { Layout.fillWidth: true; glyph: "󰐥"; label: "Power"; detail: "Session options"; foreground: shell.fg; muted: shell.muted; accent: shell.accent2; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.launch("tempered-power") }
-                                Text { text: "CPU " + (shell.pulse.cpu ?? 0) + "%  ·  RAM " + (shell.pulse.memory ?? 0) + "%"; color: shell.muted; font.family: "JetBrains Mono"; font.pixelSize: 9 }
+                                GlassAction { Layout.fillWidth: true; glyph: "󰐥"; label: "Power"; detail: "Session options"; foreground: shell.fg; muted: shell.muted; accent: shell.accent2; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.powerMenu() }
+                                GlassAction { Layout.fillWidth: true; glyph: "󰀻"; label: "Apps"; detail: "Installed software"; foreground: shell.fg; muted: shell.muted; accent: shell.accent2; surface: shell.raised; motionScale: shell.motionScale; onTriggered: shell.launch("~/.local/bin/orbitos-apps") }
                             }
                         }
 

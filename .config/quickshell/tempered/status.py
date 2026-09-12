@@ -86,6 +86,14 @@ def battery() -> int:
         return -1
 
 
+def brightness() -> int:
+    cached = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "tempered-os/brightness-value"
+    try:
+        return max(0, min(100, int(cached.read_text().strip())))
+    except (OSError, ValueError):
+        return 50
+
+
 def read_json(path: Path) -> dict:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
@@ -97,28 +105,38 @@ def read_json(path: Path) -> dict:
 def main() -> None:
     signal.signal(signal.SIGPIPE, signal.SIG_DFL)
     previous = None
+    slow = {
+        "workspace": 1, "workspaceName": "1", "network": "Offline",
+        "battery": -1, "artist": "", "title": "", "playing": False,
+        "palette": read_json(PALETTE), "settings": read_json(SETTINGS),
+    }
+    next_media = next_network = next_files = 0.0
     while True:
+        now = time.monotonic()
         cpu, previous = cpu_sample(previous)
         level, muted = volume()
-        ws_id, ws_name = workspace()
-        artist, title, playing = media()
+        if now >= next_media:
+            ws_id, ws_name = workspace()
+            artist, title, playing = media()
+            slow.update(workspace=ws_id, workspaceName=ws_name, artist=artist, title=title, playing=playing)
+            next_media = now + 0.8
+        if now >= next_network:
+            slow.update(network=network(), battery=battery())
+            next_network = now + 4.0
+        if now >= next_files:
+            slow.update(palette=read_json(PALETTE), settings=read_json(SETTINGS))
+            next_files = now + 1.0
         payload = {
+            **slow,
             "cpu": cpu,
             "memory": memory_percent(),
             "volume": level,
             "muted": muted,
-            "workspace": ws_id,
-            "workspaceName": ws_name,
-            "network": network(),
-            "battery": battery(),
-            "artist": artist,
-            "title": title,
-            "playing": playing,
-            "palette": read_json(PALETTE),
-            "settings": read_json(SETTINGS),
+            "brightness": brightness(),
+            "user": os.environ.get("USER", "You"),
         }
         print(json.dumps(payload, separators=(",", ":")), flush=True)
-        time.sleep(1.5)
+        time.sleep(0.20)
 
 
 if __name__ == "__main__":

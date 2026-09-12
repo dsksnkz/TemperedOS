@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import getpass
 import json
 import os
 import re
@@ -231,8 +232,9 @@ def sources() -> list[tuple[str, str]]:
 
 
 class TemperedSettings(Adw.Application):
-    def __init__(self) -> None:
+    def __init__(self, initial_page: str = "home") -> None:
         super().__init__(application_id="io.github.dsksnkz.TemperedOS.Settings")
+        self.initial_page = initial_page
         self.settings = load()
         self.window: Adw.ApplicationWindow | None = None
         self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE, transition_duration=180)
@@ -268,6 +270,7 @@ class TemperedSettings(Adw.Application):
         window.set_content(toolbar)
 
         pages = [
+            ("home", self.profile_page()),
             ("wifi", self.wifi_page()), ("bluetooth", self.bluetooth_page()),
             ("network", self.network_page()), ("sound", self.sound_page()),
             ("power", self.power_page()), ("system", self.system_page()),
@@ -279,8 +282,7 @@ class TemperedSettings(Adw.Application):
         ]
         for name, page in pages:
             self.stack.add_named(page, name)
-        if self.nav.get_selected_row() is None:
-            self.nav.select_row(self.nav.get_row_at_index(0))
+        self.select_page(self.initial_page)
         self.nav.grab_focus()
         self.window = window
         window.present()
@@ -299,17 +301,21 @@ class TemperedSettings(Adw.Application):
         provider = Gtk.CssProvider()
         provider.load_from_string(f'''
             .tempered-window {{ background: {colors["background"]}; }}
+            .tempered-window preferencespage {{ background: linear-gradient(145deg, alpha({colors["surface"]}, .48), alpha({colors["background"]}, .96) 55%); }}
             .tempered-window, .tempered-window row, .tempered-window label, .tempered-window entry,
             .tempered-window button, .tempered-window dropdown {{ color: {colors["text"]}; }}
             .tempered-window .dim-label {{ color: {colors["muted"]}; }}
-            .tempered-window .boxed-list {{ background: alpha({colors["surface"]}, .76); }}
-            .tempered-sidebar {{ background: alpha({colors["surface"]}, .80); border-right: 1px solid alpha({colors["border"]}, .20); }}
+            .tempered-window .boxed-list {{ background: alpha({colors["surface"]}, .84); border: 1px solid alpha({colors["border"]}, .12); }}
+            .tempered-sidebar {{ background: linear-gradient(165deg, alpha({colors["surfaceRaised"]}, .92), alpha({colors["surface"]}, .82)); border-right: 1px solid alpha({colors["border"]}, .20); }}
             .tempered-sidebar row {{ margin: 2px 10px; border-radius: 13px; padding: 3px; }}
             .tempered-sidebar row:selected {{ background: alpha({colors["accent"]}, .22); color: {colors["text"]}; }}
             .tempered-sidebar image {{ color: {colors["text"]}; }}
             .tempered-window popover contents {{ background: {colors["surfaceRaised"]}; color: {colors["text"]}; border-radius: 16px; }}
-            .tempered-window dropdown button {{ min-width: 220px; }}
-            .tempered-hero {{ background: linear-gradient(120deg, alpha({colors["accent"]}, .28), alpha({colors["accent2"]}, .18)); border: 1px solid alpha({colors["border"]}, .32); border-radius: 22px; padding: 18px; }}
+            .tempered-hero {{ background: linear-gradient(125deg, alpha({colors["accent"]}, .30), alpha({colors["accent2"]}, .17) 58%, alpha({colors["surfaceRaised"]}, .86)); border: 1px solid alpha({colors["border"]}, .28); border-radius: 24px; padding: 22px; }}
+            .profile-avatar {{ background: alpha({colors["accent"]}, .28); color: {colors["text"]}; border: 1px solid alpha({colors["accent"]}, .58); border-radius: 34px; font-size: 24px; font-weight: 700; }}
+            .tempered-device-card {{ background: alpha({colors["surface"]}, .86); border: 1px solid alpha({colors["border"]}, .13); border-radius: 16px; padding: 14px; }}
+            .tempered-device-card dropdown {{ margin-top: 8px; }}
+            .section-kicker {{ color: {colors["accent"]}; font-size: 11px; font-weight: 700; }}
             preferencesgroup > box {{ border-radius: 18px; }}
             scale trough highlight {{ background: {colors["accent"]}; }}
         ''')
@@ -332,6 +338,7 @@ class TemperedSettings(Adw.Application):
         self.nav = nav
         nav.add_css_class("navigation-sidebar")
         entries = [
+            ("home", getpass.getuser(), "avatar-default-symbolic"),
             ("wifi", "Wi-Fi", "network-wireless-symbolic"),
             ("bluetooth", "Bluetooth", "bluetooth-symbolic"),
             ("network", "Network", "network-wired-symbolic"),
@@ -369,9 +376,41 @@ class TemperedSettings(Adw.Application):
 
     def page(self, title: str, description: str) -> tuple[Adw.PreferencesPage, Adw.PreferencesGroup]:
         page = Adw.PreferencesPage(title=title)
-        group = Adw.PreferencesGroup()
+        group = Adw.PreferencesGroup(title=title)
         page.add(group)
         return page, group
+
+    def select_page(self, name: str) -> None:
+        index = 0
+        while row := self.nav.get_row_at_index(index):
+            if row.get_name() == name:
+                self.nav.select_row(row)
+                return
+            index += 1
+
+    def profile_page(self) -> Adw.PreferencesPage:
+        page = Adw.PreferencesPage(title="Home")
+        hero_group = Adw.PreferencesGroup()
+        hero = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=18)
+        hero.add_css_class("tempered-hero")
+        avatar = Gtk.Label(label=getpass.getuser()[:1].upper(), width_request=68, height_request=68)
+        avatar.add_css_class("profile-avatar")
+        identity = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3, valign=Gtk.Align.CENTER)
+        kicker = Gtk.Label(label="YOUR TEMPERED OS", xalign=0); kicker.add_css_class("section-kicker")
+        name = Gtk.Label(label=getpass.getuser(), xalign=0); name.add_css_class("title-1")
+        detail = Gtk.Label(label="Your desktop, devices and preferences in one place", xalign=0); detail.add_css_class("dim-label")
+        identity.append(kicker); identity.append(name); identity.append(detail)
+        hero.append(avatar); hero.append(identity)
+        hero_group.add(hero); page.add(hero_group)
+
+        overview = Adw.PreferencesGroup(title="At a glance")
+        self.action(overview, "Appearance", "Wallpaper colors and acrylic", "applications-graphics-symbolic", lambda: self.select_page("acrylic"))
+        self.action(overview, "Sound", "Speakers, IEMs and microphones", "audio-speakers-symbolic", lambda: self.select_page("sound"))
+        profile = str(self.settings.get("power_profile", "balanced")).replace("-", " ").title()
+        self.action(overview, "Power and Battery", profile, "battery-symbolic", lambda: self.select_page("power"))
+        self.action(overview, "Displays", "Layout, refresh rate and brightness", "video-display-symbolic", lambda: self.select_page("displays"))
+        page.add(overview)
+        return page
 
     def switch(self, group: Adw.PreferencesGroup, key: str, title: str, subtitle: str, option: str | None = None) -> Adw.SwitchRow:
         row = Adw.SwitchRow(title=title, subtitle=subtitle, active=bool(self.settings[key]))
@@ -399,6 +438,18 @@ class TemperedSettings(Adw.Application):
         row = Adw.ActionRow(title=title, subtitle=subtitle, activatable=True)
         row.add_prefix(Gtk.Image.new_from_icon_name(icon)); row.add_suffix(Gtk.Image.new_from_icon_name("go-next-symbolic"))
         row.connect("activated", lambda *_args: callback()); group.add(row)
+
+    def device_picker(self, group: Adw.PreferencesGroup, title: str, subtitle: str,
+                      labels: list[str], selected: int, callback: Callable[[int], None]) -> None:
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        card.add_css_class("tempered-device-card")
+        title_label = Gtk.Label(label=title, xalign=0); title_label.add_css_class("heading")
+        subtitle_label = Gtk.Label(label=subtitle, xalign=0); subtitle_label.add_css_class("dim-label")
+        selector = Gtk.DropDown.new_from_strings(labels)
+        selector.set_hexpand(True); selector.set_selected(selected)
+        selector.connect("notify::selected", lambda widget, _param: callback(widget.get_selected()))
+        card.append(title_label); card.append(subtitle_label); card.append(selector)
+        group.add(card)
 
     def change(self, key: str, value: object, apply: Callable[[object], None] | None = None) -> None:
         self.settings[key] = value; save(self.settings)
@@ -468,24 +519,18 @@ class TemperedSettings(Adw.Application):
         self.scale(group, "output_volume", "Output volume", "Current default output", 0, 125, 1, lambda value: run(["wpctl", "set-volume", "-l", "1.25", "@DEFAULT_AUDIO_SINK@", f"{round(value)}%"]))
         sink_values = sinks()
         if sink_values:
-            names = [self.compact_device_name(label) for _name, label in sink_values]
-            row = Adw.ActionRow(title="Sound output", subtitle="Choose speakers, IEMs or Bluetooth")
-            selector = Gtk.DropDown.new_from_strings(names)
-            selector.set_size_request(280, -1); selector.set_valign(Gtk.Align.CENTER)
+            names = [self.friendly_device_name(identifier, label) for identifier, label in sink_values]
             default_sink = output(["pactl", "get-default-sink"])
-            selector.set_selected(next((index for index, item in enumerate(sink_values) if item[0] == default_sink), 0))
-            selector.connect("notify::selected", lambda widget, _param: run(["pactl", "set-default-sink", sink_values[widget.get_selected()][0]]))
-            row.add_suffix(selector); group.add(row)
+            selected = next((index for index, item in enumerate(sink_values) if item[0] == default_sink), 0)
+            self.device_picker(group, "Sound output", "Speakers, IEMs or Bluetooth", names, selected,
+                               lambda index: run(["pactl", "set-default-sink", sink_values[index][0]]))
         source_values = sources()
         if source_values:
-            labels = [self.compact_device_name(label) for _name, label in source_values]
-            row = Adw.ActionRow(title="Microphone", subtitle="Choose the recording input")
-            selector = Gtk.DropDown.new_from_strings(labels)
-            selector.set_size_request(280, -1); selector.set_valign(Gtk.Align.CENTER)
+            labels = [self.friendly_device_name(identifier, label) for identifier, label in source_values]
             default_source = output(["pactl", "get-default-source"])
-            selector.set_selected(next((index for index, item in enumerate(source_values) if item[0] == default_source), 0))
-            selector.connect("notify::selected", lambda widget, _param: run(["pactl", "set-default-source", source_values[widget.get_selected()][0]]))
-            row.add_suffix(selector); group.add(row)
+            selected = next((index for index, item in enumerate(source_values) if item[0] == default_source), 0)
+            self.device_picker(group, "Microphone", "Choose the recording input", labels, selected,
+                               lambda index: run(["pactl", "set-default-source", source_values[index][0]]))
         self.settings["mic_muted"] = "MUTED" in output(["wpctl", "get-volume", "@DEFAULT_AUDIO_SOURCE@"]) 
         self.switch(group, "mic_muted", "Mute microphone", "Stops the current default input", None).connect("notify::active", lambda row, _p: run(["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "1" if row.get_active() else "0"]))
         self.action(group, "Advanced sound", "Per-app routing, profiles and channel balance", "audio-card-symbolic", lambda: detached(["pavucontrol"]))
@@ -657,9 +702,21 @@ class TemperedSettings(Adw.Application):
         run([str(helper), "set", str(round(value))], timeout=10)
 
     @staticmethod
-    def compact_device_name(label: str) -> str:
+    def friendly_device_name(identifier: str, label: str) -> str:
+        if "Speaker__sink" in identifier:
+            return "Built-in speakers"
+        if "Headset__source" in identifier:
+            return "Headset microphone"
+        if "__Mic" in identifier:
+            return "Built-in microphone"
+        if identifier.startswith("bluez_"):
+            return label.split(" - ", 1)[0]
+        if identifier.endswith(".hdmi-stereo"):
+            return "External monitor · HDMI"
         cleaned = re.sub(r"\s+", " ", label).strip()
+        cleaned = re.sub(r"^500 Series Chipset Family HD Audio ", "", cleaned)
         cleaned = cleaned.replace("High Definition Audio Controller ", "")
+        cleaned = cleaned.replace("HDMI / DisplayPort", "DisplayPort")
         return cleaned if len(cleaned) <= 42 else cleaned[:39].rstrip() + "…"
 
     def reapply(self) -> None:
@@ -671,7 +728,8 @@ def main() -> int:
     if len(sys.argv) > 1 and sys.argv[1] == "--apply":
         apply_all(settings)
         return 0
-    app = TemperedSettings()
+    initial_page = sys.argv[2] if len(sys.argv) > 2 and sys.argv[1] == "--page" else "home"
+    app = TemperedSettings(initial_page)
     return app.run([sys.argv[0]])
 
 
