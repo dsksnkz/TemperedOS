@@ -1,0 +1,117 @@
+/* TemperedOS Settings visual layer.
+ * Python builds the controls; this file owns their appearance. */
+
+.tempered-window {
+    background: @tempered_bg;
+}
+
+.tempered-window preferencespage {
+    background: linear-gradient(145deg,
+        alpha(@tempered_surface, .48),
+        alpha(@tempered_bg, .96) 55%);
+}
+
+.tempered-window,
+.tempered-window row,
+.tempered-window label,
+.tempered-window entry,
+.tempered-window button,
+.tempered-window dropdown {
+    color: @tempered_text;
+}
+
+.tempered-window .dim-label {
+    color: @tempered_muted;
+}
+
+.tempered-window .boxed-list {
+    background: alpha(@tempered_surface, .84);
+    border: 1px solid alpha(@tempered_border, .12);
+}
+
+.tempered-sidebar {
+    background: linear-gradient(165deg,
+        alpha(@tempered_raised, .92),
+        alpha(@tempered_surface, .82));
+    border-right: 1px solid alpha(@tempered_border, .20);
+}
+
+.tempered-sidebar row {
+    margin: 2px 10px;
+    padding: 3px;
+    border-radius: 13px;
+}
+
+.tempered-sidebar row:hover {
+    background: alpha(@tempered_text, .06);
+}
+
+.tempered-sidebar row:selected {
+    background: alpha(@tempered_accent, .22);
+    color: @tempered_text;
+}
+
+.tempered-sidebar image {
+    color: @tempered_text;
+}
+
+.tempered-window popover contents {
+    background: @tempered_raised;
+    color: @tempered_text;
+    border: 1px solid alpha(@tempered_border, .16);
+    border-radius: 16px;
+}
+
+.tempered-hero {
+    background: linear-gradient(125deg,
+        alpha(@tempered_accent, .30),
+        alpha(@tempered_accent_2, .17) 58%,
+        alpha(@tempered_raised, .86));
+    border: 1px solid alpha(@tempered_border, .28);
+    border-radius: 24px;
+    padding: 22px;
+}
+
+.profile-avatar {
+    background: alpha(@tempered_accent, .28);
+    color: @tempered_text;
+    border: 1px solid alpha(@tempered_accent, .58);
+    border-radius: 34px;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.tempered-device-card {
+    background: alpha(@tempered_surface, .86);
+    border: 1px solid alpha(@tempered_border, .13);
+    border-radius: 16px;
+    padding: 14px;
+}
+
+.tempered-device-card dropdown {
+    margin-top: 8px;
+}
+
+.tempered-device-card dropdown button {
+    border-radius: 12px;
+}
+
+.section-kicker {
+    color: @tempered_accent;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+preferencesgroup > box {
+    border-radius: 18px;
+}
+
+scale trough {
+    min-height: 5px;
+    border-radius: 3px;
+}
+
+scale trough highlight {
+    background: @tempered_accent;
+    border-radius: 3px;
+}

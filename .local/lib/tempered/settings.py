@@ -25,6 +25,7 @@ CONFIG = Path(os.environ.get("XDG_CONFIG_HOME", HOME / ".config"))
 STATE = Path(os.environ.get("XDG_STATE_HOME", HOME / ".local/state")) / "tempered-os"
 SETTINGS_FILE = CONFIG / "tempered" / "settings.json"
 THEME_BIN = HOME / ".local/bin/tempered-theme"
+SETTINGS_CSS = Path(__file__).with_name("settings.css")
 
 DEFAULTS: dict[str, object] = {
     "wallpaper": str(CONFIG / "tempered/wallpapers/default.png"),
@@ -298,27 +299,23 @@ class TemperedSettings(Adw.Application):
         Adw.StyleManager.get_default().set_color_scheme(
             Adw.ColorScheme.FORCE_DARK if colors.get("dark", True) else Adw.ColorScheme.FORCE_LIGHT
         )
+        try:
+            stylesheet = SETTINGS_CSS.read_text(encoding="utf-8")
+        except OSError as error:
+            print(f"Could not load {SETTINGS_CSS}: {error}", file=sys.stderr)
+            stylesheet = ""
         provider = Gtk.CssProvider()
-        provider.load_from_string(f'''
-            .tempered-window {{ background: {colors["background"]}; }}
-            .tempered-window preferencespage {{ background: linear-gradient(145deg, alpha({colors["surface"]}, .48), alpha({colors["background"]}, .96) 55%); }}
-            .tempered-window, .tempered-window row, .tempered-window label, .tempered-window entry,
-            .tempered-window button, .tempered-window dropdown {{ color: {colors["text"]}; }}
-            .tempered-window .dim-label {{ color: {colors["muted"]}; }}
-            .tempered-window .boxed-list {{ background: alpha({colors["surface"]}, .84); border: 1px solid alpha({colors["border"]}, .12); }}
-            .tempered-sidebar {{ background: linear-gradient(165deg, alpha({colors["surfaceRaised"]}, .92), alpha({colors["surface"]}, .82)); border-right: 1px solid alpha({colors["border"]}, .20); }}
-            .tempered-sidebar row {{ margin: 2px 10px; border-radius: 13px; padding: 3px; }}
-            .tempered-sidebar row:selected {{ background: alpha({colors["accent"]}, .22); color: {colors["text"]}; }}
-            .tempered-sidebar image {{ color: {colors["text"]}; }}
-            .tempered-window popover contents {{ background: {colors["surfaceRaised"]}; color: {colors["text"]}; border-radius: 16px; }}
-            .tempered-hero {{ background: linear-gradient(125deg, alpha({colors["accent"]}, .30), alpha({colors["accent2"]}, .17) 58%, alpha({colors["surfaceRaised"]}, .86)); border: 1px solid alpha({colors["border"]}, .28); border-radius: 24px; padding: 22px; }}
-            .profile-avatar {{ background: alpha({colors["accent"]}, .28); color: {colors["text"]}; border: 1px solid alpha({colors["accent"]}, .58); border-radius: 34px; font-size: 24px; font-weight: 700; }}
-            .tempered-device-card {{ background: alpha({colors["surface"]}, .86); border: 1px solid alpha({colors["border"]}, .13); border-radius: 16px; padding: 14px; }}
-            .tempered-device-card dropdown {{ margin-top: 8px; }}
-            .section-kicker {{ color: {colors["accent"]}; font-size: 11px; font-weight: 700; }}
-            preferencesgroup > box {{ border-radius: 18px; }}
-            scale trough highlight {{ background: {colors["accent"]}; }}
-        ''')
+        provider.load_from_string(f'''@define-color tempered_bg {colors["background"]};
+@define-color tempered_surface {colors["surface"]};
+@define-color tempered_raised {colors["surfaceRaised"]};
+@define-color tempered_text {colors["text"]};
+@define-color tempered_muted {colors["muted"]};
+@define-color tempered_accent {colors["accent"]};
+@define-color tempered_accent_2 {colors["accent2"]};
+@define-color tempered_border {colors["border"]};
+@define-color tempered_danger {colors["danger"]};
+
+{stylesheet}''')
         Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
     def sidebar(self) -> Gtk.Widget:
