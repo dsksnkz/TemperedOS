@@ -90,7 +90,7 @@ def set_value(bus: str | None, value: int) -> bool:
     value = max(MINIMUM, min(100, value))
     try:
         if bus:
-            return run(["ddcutil", "--bus", bus, "setvcp", "10", str(value)]).returncode == 0
+            return run(["ddcutil", "--bus", bus, "setvcp", "10", str(value), "--noverify"]).returncode == 0
         if shutil.which("brightnessctl"):
             return run(["brightnessctl", "set", f"{value}%"]).returncode == 0
     except (OSError, subprocess.TimeoutExpired):

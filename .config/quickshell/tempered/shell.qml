@@ -413,7 +413,7 @@ ShellRoot {
                                         FluidSlider {
                                             Layout.fillWidth: true; glyph: "󰃠"; motionScale: shell.motionScale
                                             modelValue: (shell.pulse.brightness ?? 50) / 100; foreground: shell.fg; accent: shell.accent2
-                                            onMoved: value => shell.run("~/.local/bin/tempered-brightness set " + Math.round(value * 100))
+                                            onCommitted: value => shell.run("~/.local/bin/tempered-brightness set " + Math.round(value * 100))
                                         }
                                     }
                                     GlassAction { Layout.fillWidth: true; glyph: shell.pulse.playing ? "󰏤" : "󰐊"; label: shell.pulse.playing ? (shell.pulse.title || "Pause") : "Play"; detail: shell.pulse.playing ? (shell.pulse.artist || "Now playing") : "No active player"; foreground: shell.fg; muted: shell.muted; accent: shell.accent; surface: shell.surface; motionScale: shell.motionScale; onTriggered: shell.run("playerctl play-pause") }

@@ -240,6 +240,8 @@ class TemperedSettings(Adw.Application):
         self.window: Adw.ApplicationWindow | None = None
         self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE, transition_duration=180)
         self.toast_overlay = Adw.ToastOverlay()
+        self._brightness_timeout = 0
+        self._pending_brightness = float(self.settings["display_brightness"])
         self.connect("activate", self.activate)
 
     def activate(self, *_args: object) -> None:
@@ -695,8 +697,16 @@ class TemperedSettings(Adw.Application):
         self.toast("Dynamic island restarted")
 
     def set_brightness(self, value: float) -> None:
+        self._pending_brightness = value
+        if self._brightness_timeout:
+            GLib.source_remove(self._brightness_timeout)
+        self._brightness_timeout = GLib.timeout_add(280, self.commit_brightness)
+
+    def commit_brightness(self) -> bool:
+        self._brightness_timeout = 0
         helper = HOME / ".local/bin/tempered-brightness"
-        run([str(helper), "set", str(round(value))], timeout=10)
+        detached([str(helper), "set", str(round(self._pending_brightness))])
+        return GLib.SOURCE_REMOVE
 
     @staticmethod
     def friendly_device_name(identifier: str, label: str) -> str:

@@ -9,6 +9,7 @@ Item {
     property color accent: "#87bfff"
     property real motionScale: 1
     signal moved(real value)
+    signal committed(real value)
 
     onModelValueChanged: if (!drag.active) visualValue = modelValue
 
@@ -59,6 +60,8 @@ Item {
             property bool active: pressed
             onPressed: update(mouse.x)
             onPositionChanged: if (pressed) update(mouse.x)
+            onReleased: root.committed(root.visualValue)
+            onCanceled: root.visualValue = root.modelValue
             function update(px) {
                 root.visualValue = Math.max(0, Math.min(1, px / width))
                 root.moved(root.visualValue)
