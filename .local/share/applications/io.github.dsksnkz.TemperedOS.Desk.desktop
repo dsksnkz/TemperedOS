@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Tempered Desk
+Comment=Your calendar, focus timer and local scratchpad
+Exec=sh -c "exec ~/.local/bin/tempered-control desk"
+Icon=user-home-symbolic
+Terminal=false
+Categories=Utility;
+Keywords=focus;timer;calendar;notes;tempered;

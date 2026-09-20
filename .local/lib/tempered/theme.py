@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import colorsys
+import argparse
 import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from PIL import Image, ImageOps
@@ -31,9 +33,15 @@ def read_json(path: Path) -> dict:
 
 def atomic_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    scratch = path.with_suffix(path.suffix + ".new")
-    scratch.write_text(text, encoding="utf-8")
-    scratch.replace(path)
+    fd, temporary = tempfile.mkstemp(prefix=".tempered-", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as output:
+            output.write(text)
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, path)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
 
 
 def rgb_hex(rgb: tuple[int, int, int]) -> str:
@@ -59,18 +67,27 @@ def chroma(rgb: tuple[int, int, int]) -> float:
 
 def rotate_hue(rgb: tuple[int, int, int], degrees: float) -> tuple[int, int, int]:
     red, green, blue = (part / 255 for part in rgb)
-    hue, saturation, lightness = colorsys.rgb_to_hls(red, green, blue)
+    hue, lightness, saturation = colorsys.rgb_to_hls(red, green, blue)
     hue = (hue + degrees / 360) % 1
-    return tuple(round(part * 255) for part in colorsys.hls_to_rgb(hue, saturation, lightness))
+    return tuple(round(part * 255) for part in colorsys.hls_to_rgb(hue, lightness, saturation))
 
 
 def energize(rgb: tuple[int, int, int], dark_surface: bool) -> tuple[int, int, int]:
     """Keep wallpaper hue while making interactive color reliably vivid and legible."""
     red, green, blue = (part / 255 for part in rgb)
-    hue, saturation, lightness = colorsys.rgb_to_hls(red, green, blue)
+    hue, lightness, saturation = colorsys.rgb_to_hls(red, green, blue)
     saturation = max(0.48, min(0.88, saturation * 1.12))
     lightness = max(0.54 if dark_surface else 0.38, min(0.68 if dark_surface else 0.56, lightness))
-    return tuple(round(part * 255) for part in colorsys.hls_to_rgb(hue, saturation, lightness))
+    return tuple(round(part * 255) for part in colorsys.hls_to_rgb(hue, lightness, saturation))
+
+
+def readable_accent(color: tuple[int, int, int], background: tuple[int, int, int]) -> tuple[int, int, int]:
+    """Keep colored text and dark text on accent buttons at least 4.5:1."""
+    for _ in range(48):
+        if (luminance(color) + .05) / (luminance(background) + .05) >= 4.5:
+            break
+        color = mix(color, (255, 255, 255), .08)
+    return color
 
 
 def hue_distance(a: tuple[int, int, int], b: tuple[int, int, int]) -> float:
@@ -101,6 +118,7 @@ def palette_from(path: Path) -> dict[str, str]:
     base = mix(dominant, (6, 9, 14), 0.90)
     if luminance(base) > 0.025:
         base = mix(base, (4, 7, 11), 0.30)
+    accent = readable_accent(accent, base)
     text = (242, 247, 252)
     muted = mix(text, base, 0.48)
     surface = mix(base, accent, 0.10)
@@ -114,7 +132,7 @@ def palette_from(path: Path) -> dict[str, str]:
         )[1]
     else:
         accent_2 = rotate_hue(accent, 34)
-    accent_2 = energize(accent_2, True)
+    accent_2 = readable_accent(energize(accent_2, True), base)
 
     return {
         "background": rgb_hex(base),
@@ -184,7 +202,7 @@ wallpaper {{
         "pink": colors["accent2"], "yellow": colors["border"],
         "maroon": colors["danger"], "teal": colors["accent"],
     }
-    atomic_text(Path("/tmp/qs_colors.json"), json.dumps(picker_colors) + "\n")
+    atomic_text(TEMPERED / "picker-colors.json", json.dumps(picker_colors) + "\n")
 
 
 def border_config(colors: dict[str, str]) -> str:
@@ -234,8 +252,12 @@ def notify_desktop(colors: dict[str, str], wallpaper: Path) -> None:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("wallpaper", nargs="?")
+    parser.add_argument("--no-apply", action="store_true", help="Generate files without contacting the running desktop")
+    args = parser.parse_args()
     settings = read_json(SETTINGS_FILE)
-    requested = Path(sys.argv[1]).expanduser() if len(sys.argv) > 1 else Path(settings.get("wallpaper", DEFAULT_WALLPAPER))
+    requested = Path(args.wallpaper).expanduser() if args.wallpaper else Path(settings.get("wallpaper", DEFAULT_WALLPAPER))
     wallpaper = requested.resolve()
     if not wallpaper.is_file():
         print(f"Tempered OS: wallpaper not found: {wallpaper}", file=sys.stderr)
@@ -249,7 +271,8 @@ def main() -> int:
     settings["wallpaper"] = str(wallpaper)
     atomic_text(SETTINGS_FILE, json.dumps(settings, indent=2) + "\n")
     emit_files(colors, wallpaper)
-    notify_desktop(colors, wallpaper)
+    if not args.no_apply:
+        notify_desktop(colors, wallpaper)
     print(json.dumps({**colors, "wallpaper": str(wallpaper)}))
     return 0
 

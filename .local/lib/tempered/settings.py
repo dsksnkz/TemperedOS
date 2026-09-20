@@ -10,6 +10,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Callable
 
@@ -17,7 +18,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gdk, Gio, GLib, Gtk  # noqa: E402
+from gi.repository import Adw, Gdk, Gio, GLib, Gtk, Pango  # noqa: E402
 
 
 HOME = Path.home()
@@ -28,6 +29,10 @@ THEME_BIN = HOME / ".local/bin/tempered-theme"
 SETTINGS_CSS = Path(__file__).with_name("settings.css")
 
 DEFAULTS: dict[str, object] = {
+    "display_name": "",
+    "profile_image": "",
+    "music_visualizer": True,
+    "island_feedback": True,
     "wallpaper": str(CONFIG / "tempered/wallpapers/default.png"),
     "adaptive_color": True,
     "glass_opacity": 68,
@@ -99,7 +104,13 @@ def detached(args: list[str]) -> None:
     try:
         subprocess.Popen(args, start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except OSError:
-        return
+        # Missing optional tools should give useful feedback, not a dead button.
+        try:
+            subprocess.Popen(["notify-send", "-a", "Tempered OS", "Application unavailable",
+                              f"{Path(args[0]).name} is not installed or could not start."],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError:
+            pass
 
 
 def shell_path() -> str:
@@ -114,11 +125,19 @@ def read_json(path: Path) -> dict:
         return {}
 
 
-def save(settings: dict[str, object]) -> None:
+def save(settings: dict[str, object], keys: tuple[str, ...] | None = None) -> None:
     SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    scratch = SETTINGS_FILE.with_suffix(".json.new")
-    scratch.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
-    scratch.replace(SETTINGS_FILE)
+    # A wallpaper update may have changed other preferences since this window opened.
+    data = {**read_json(SETTINGS_FILE), **{key: settings[key] for key in keys}} if keys else settings
+    fd, name = tempfile.mkstemp(prefix=".settings-", dir=SETTINGS_FILE.parent)
+    try:
+        with os.fdopen(fd, "w") as handle:
+            json.dump(data, handle, indent=2)
+            handle.write("\n")
+        os.replace(name, SETTINGS_FILE)
+    finally:
+        if os.path.exists(name):
+            os.unlink(name)
 
 
 def load() -> dict[str, object]:
@@ -239,8 +258,20 @@ class TemperedSettings(Adw.Application):
         self.settings = load()
         self.window: Adw.ApplicationWindow | None = None
         self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE, transition_duration=180)
-        self.toast_overlay = Adw.ToastOverlay()
+        self.stack.set_hexpand(True)
+        self.stack.set_vexpand(True)
+        self.toast_overlay = Adw.ToastOverlay(hexpand=True, vexpand=True)
         self._brightness_timeout = 0
+        self._scale_timers: dict[str, int] = {}
+        self._scale_commits: dict[str, Callable[[], bool]] = {}
+        self.page_factories = {
+            "home": self.profile_page, "wifi": self.wifi_page, "bluetooth": self.bluetooth_page,
+            "network": self.network_page, "sound": self.sound_page, "power": self.power_page,
+            "system": self.system_page, "access": self.accessibility_page, "acrylic": self.appearance_page,
+            "island": self.island_page, "motion": self.motion_page, "displays": self.displays_page,
+            "input": self.input_page, "apps": self.apps_page, "storage": self.storage_page,
+            "region": self.region_page, "privacy": self.privacy_page,
+        }
         self._pending_brightness = float(self.settings["display_brightness"])
         self.connect("activate", self.activate)
 
@@ -253,6 +284,7 @@ class TemperedSettings(Adw.Application):
         window.set_default_size(1040, 720)
         window.set_size_request(780, 560)
         window.add_css_class("tempered-window")
+        window.connect("close-request", self.flush_preferences)
 
         toolbar = Adw.ToolbarView()
         header = Adw.HeaderBar()
@@ -272,19 +304,9 @@ class TemperedSettings(Adw.Application):
         toolbar.set_content(split)
         window.set_content(toolbar)
 
-        pages = [
-            ("home", self.profile_page()),
-            ("wifi", self.wifi_page()), ("bluetooth", self.bluetooth_page()),
-            ("network", self.network_page()), ("sound", self.sound_page()),
-            ("power", self.power_page()), ("system", self.system_page()),
-            ("access", self.accessibility_page()), ("acrylic", self.appearance_page()),
-            ("island", self.island_page()), ("motion", self.motion_page()),
-            ("displays", self.displays_page()), ("input", self.input_page()),
-            ("apps", self.apps_page()), ("storage", self.storage_page()),
-            ("region", self.region_page()), ("privacy", self.privacy_page()),
-        ]
-        for name, page in pages:
-            self.stack.add_named(page, name)
+        # Only build the page being used. Opening Settings must not probe every
+        # monitor, audio device, Bluetooth adapter and disk before drawing a frame.
+        self.window = window
         self.select_page(self.initial_page)
         self.nav.grab_focus()
         self.window = window
@@ -337,7 +359,7 @@ class TemperedSettings(Adw.Application):
         self.nav = nav
         nav.add_css_class("navigation-sidebar")
         entries = [
-            ("home", getpass.getuser(), "avatar-default-symbolic"),
+            ("home", str(self.settings.get("display_name") or getpass.getuser()), "avatar-default-symbolic"),
             ("wifi", "Wi-Fi", "network-wireless-symbolic"),
             ("bluetooth", "Bluetooth", "bluetooth-symbolic"),
             ("network", "Network", "network-wired-symbolic"),
@@ -364,7 +386,7 @@ class TemperedSettings(Adw.Application):
             image.set_pixel_size(16)
             row.add_prefix(image)
             nav.append(row)
-        nav.connect("row-selected", lambda _list, row: self.stack.set_visible_child_name(row.get_name()) if row else None)
+        nav.connect("row-selected", lambda _list, row: self.select_page(row.get_name()) if row else None)
         nav.set_filter_func(lambda row: search.get_text().casefold() in row.get_title().casefold())
         search.connect("search-changed", lambda *_args: nav.invalidate_filter())
         nav_scroll = Gtk.ScrolledWindow(vexpand=True)
@@ -380,6 +402,11 @@ class TemperedSettings(Adw.Application):
         return page, group
 
     def select_page(self, name: str) -> None:
+        if name not in self.page_factories:
+            name = "home"
+        if self.stack.get_child_by_name(name) is None:
+            self.stack.add_named(self.page_factories[name](), name)
+        self.stack.set_visible_child_name(name)
         index = 0
         while row := self.nav.get_row_at_index(index):
             if row.get_name() == name:
@@ -392,15 +419,27 @@ class TemperedSettings(Adw.Application):
         hero_group = Adw.PreferencesGroup()
         hero = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=18)
         hero.add_css_class("tempered-hero")
-        avatar = Gtk.Label(label=getpass.getuser()[:1].upper(), width_request=68, height_request=68)
-        avatar.add_css_class("profile-avatar")
+        display_name = str(self.settings.get("display_name") or getpass.getuser())
+        self.avatar = Adw.Avatar(size=76, text=display_name, show_initials=True)
+        self.load_avatar()
         identity = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3, valign=Gtk.Align.CENTER)
         kicker = Gtk.Label(label="YOUR TEMPERED OS", xalign=0); kicker.add_css_class("section-kicker")
-        name = Gtk.Label(label=getpass.getuser(), xalign=0); name.add_css_class("title-1")
-        detail = Gtk.Label(label="Your desktop, devices and preferences in one place", xalign=0); detail.add_css_class("dim-label")
-        identity.append(kicker); identity.append(name); identity.append(detail)
-        hero.append(avatar); hero.append(identity)
+        self.profile_name = Gtk.Label(label=display_name, xalign=0, max_width_chars=28, ellipsize=Pango.EllipsizeMode.END); self.profile_name.add_css_class("title-1")
+        detail = Gtk.Label(label="A space of your own.", xalign=0); detail.add_css_class("dim-label")
+        identity.append(kicker); identity.append(self.profile_name); identity.append(detail)
+        hero.append(self.avatar); hero.append(identity)
         hero_group.add(hero); page.add(hero_group)
+
+        personal = Adw.PreferencesGroup(title="Personal")
+        name_entry = Adw.EntryRow(title="Display name", text=display_name, show_apply_button=True)
+        name_entry.connect("apply", lambda row: self.set_display_name(row.get_text()))
+        personal.add(name_entry)
+        self.action(personal, "Profile picture", "Only stored on this device", "avatar-default-symbolic", self.choose_avatar)
+        self.action(personal, "Your desk", "Calendar, focus sessions and a private scratchpad", "user-home-symbolic",
+                    lambda: detached([str(HOME / ".local/bin/tempered-control"), "desk"]))
+        self.action(personal, "Shelf", "Captures, places, colors and your shortcuts", "folder-pictures-symbolic",
+                    lambda: detached([str(HOME / ".local/bin/tempered-shelf")]))
+        page.add(personal)
 
         overview = Adw.PreferencesGroup(title="At a glance")
         self.action(overview, "Appearance", "Wallpaper colors and acrylic", "applications-graphics-symbolic", lambda: self.select_page("acrylic"))
@@ -410,6 +449,49 @@ class TemperedSettings(Adw.Application):
         self.action(overview, "Displays", "Layout, refresh rate and brightness", "video-display-symbolic", lambda: self.select_page("displays"))
         page.add(overview)
         return page
+
+    def load_avatar(self) -> None:
+        path = Path(str(self.settings.get("profile_image", "")))
+        if path.is_file():
+            try:
+                self.avatar.set_custom_image(Gdk.Texture.new_from_filename(str(path)))
+            except GLib.Error:
+                pass
+
+    def set_display_name(self, name: str) -> None:
+        name = name.strip()[:48] or getpass.getuser()
+        self.change("display_name", name)
+        self.profile_name.set_label(name)
+        self.avatar.set_text(name)
+        self.nav.get_row_at_index(0).set_title(name)
+        self.toast("Your profile is saved")
+
+    def choose_avatar(self) -> None:
+        dialog = Gtk.FileDialog(title="Choose a profile picture")
+        images = Gtk.FileFilter(); images.set_name("Images"); images.add_mime_type("image/*")
+        filters = Gio.ListStore.new(Gtk.FileFilter); filters.append(images); dialog.set_filters(filters)
+        dialog.open(self.window, None, self.avatar_chosen)
+
+    def avatar_chosen(self, dialog: Gtk.FileDialog, result: Gio.AsyncResult) -> None:
+        try:
+            selected = dialog.open_finish(result)
+        except GLib.Error:
+            return
+        if not selected.get_path():
+            self.toast("Choose an image saved on this device")
+            return
+        try:
+            from PIL import Image, ImageOps
+            STATE.mkdir(parents=True, exist_ok=True, mode=0o700)
+            destination = STATE / "profile.png"
+            with Image.open(selected.get_path()) as image:
+                photo = ImageOps.fit(ImageOps.exif_transpose(image).convert("RGB"), (256, 256))
+                photo.save(destination, "PNG")
+            self.change("profile_image", str(destination))
+            self.load_avatar()
+            self.toast("Profile picture updated")
+        except (OSError, ValueError, Image.DecompressionBombError):
+            self.toast("Could not open that image")
 
     def switch(self, group: Adw.PreferencesGroup, key: str, title: str, subtitle: str, option: str | None = None) -> Adw.SwitchRow:
         row = Adw.SwitchRow(title=title, subtitle=subtitle, active=bool(self.settings[key]))
@@ -451,15 +533,35 @@ class TemperedSettings(Adw.Application):
         group.add(card)
 
     def change(self, key: str, value: object, apply: Callable[[object], None] | None = None) -> None:
-        self.settings[key] = value; save(self.settings)
+        self.settings[key] = value; save(self.settings, (key,))
         if apply:
             apply(value)
 
     def delayed_change(self, key: str, value: float, apply: Callable[[float], None] | None) -> None:
         value = round(value, 2)
-        self.settings[key] = value; save(self.settings)
-        if apply:
-            apply(value)
+        self.settings[key] = value
+        if key in self._scale_timers:
+            GLib.source_remove(self._scale_timers.pop(key))
+        def commit() -> bool:
+            self._scale_timers.pop(key, None)
+            self._scale_commits.pop(key, None)
+            save(self.settings, (key,))
+            if apply:
+                apply(value)
+            return GLib.SOURCE_REMOVE
+        self._scale_timers[key] = GLib.timeout_add(180, commit)
+        self._scale_commits[key] = commit
+
+    def flush_preferences(self, *_args) -> bool:
+        for key, commit in list(self._scale_commits.items()):
+            source = self._scale_timers.get(key)
+            if source:
+                GLib.source_remove(source)
+            commit()
+        if self._brightness_timeout:
+            GLib.source_remove(self._brightness_timeout)
+            self.commit_brightness()
+        return False
 
     def toast(self, message: str) -> None:
         self.toast_overlay.add_toast(Adw.Toast(title=message, timeout=3))
@@ -488,6 +590,8 @@ class TemperedSettings(Adw.Application):
         self.scale(group, "island_height", "Island height", "Vertical size", 42, 76, 1)
         self.switch(group, "island_compact", "Compact current", "Tighten information when the display is crowded")
         self.switch(group, "show_seconds", "Show seconds", "Useful when timing work; calmer when disabled")
+        self.switch(group, "music_visualizer", "Audio-reactive current", "Real audio levels while music is playing; nothing moving at idle")
+        self.switch(group, "island_feedback", "Volume feedback", "Briefly show keyboard volume changes in the island")
         self.action(group, "Open the island", "Preview controls and current system state", "view-more-symbolic", lambda: detached(["qs", "ipc", "-p", shell_path(), "call", "tempered", "controls"]))
         self.action(group, "Restart shell", "Reload the island after a display or theme change", "view-refresh-symbolic", self.restart_shell)
         return page
@@ -631,7 +735,7 @@ class TemperedSettings(Adw.Application):
         self.scale(group, "cursor_size", "Pointer size", "Applied to the active Hyprland cursor", 16, 64, 1, lambda value: run(["hyprctl", "setcursor", os.environ.get("XCURSOR_THEME", "Bibata-Modern-Ice"), str(round(value))]))
         self.scale(group, "text_scale", "Text scale", "GTK application text size", 80, 180, 5, lambda value: run(["gsettings", "set", "org.gnome.desktop.interface", "text-scaling-factor", f"{value / 100:.2f}"]))
         self.action(group, "Keyboard accessibility", "Inspect current input devices and repeat behavior", "input-keyboard-symbolic", lambda: detached(["kitty", "--title", "Input devices", "-e", "bash", "-lc", "hyprctl devices; echo; read -r -p 'Press Enter to close…'"]))
-        self.action(group, "Screen magnifier", "Hyprland zoom gesture: Super + wheel", "zoom-in-symbolic", lambda: self.toast("Hold Super and scroll to zoom"))
+        self.action(group, "Workspace navigation", "Super + wheel switches spaces; add Shift to move a window", "view-grid-symbolic", lambda: self.toast("Your existing workspace shortcuts are unchanged"))
         return page
 
     def privacy_page(self) -> Adw.PreferencesPage:

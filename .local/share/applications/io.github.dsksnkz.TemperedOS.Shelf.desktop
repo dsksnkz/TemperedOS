@@ -1,0 +1,22 @@
+[Desktop Entry]
+Name=Tempered Shelf
+Comment=Captures, pinned places, screen colors and keyboard shortcuts
+Exec=sh -c "exec ~/.local/bin/tempered-shelf"
+Icon=folder-pictures-symbolic
+Terminal=false
+Type=Application
+Categories=Utility;
+Keywords=Tempered;screenshot;capture;shortcuts;colors;folders;
+Actions=Capture;Places;Shortcuts;
+
+[Desktop Action Capture]
+Name=Captures
+Exec=sh -c "exec ~/.local/bin/tempered-shelf --captures"
+
+[Desktop Action Places]
+Name=Pinned places
+Exec=sh -c "exec ~/.local/bin/tempered-shelf --places"
+
+[Desktop Action Shortcuts]
+Name=Keyboard shortcuts
+Exec=sh -c "exec ~/.local/bin/tempered-shelf --shortcuts"

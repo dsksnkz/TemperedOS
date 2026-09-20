@@ -1,0 +1,31 @@
+/* Shelf is a normal GTK application. All styling lives here. */
+.tempered-shelf { background: @shelf_background; color: @shelf_text; }
+.tempered-shelf headerbar { background: alpha(@shelf_surface, .75); }
+.tempered-shelf .shelf-hero {
+    padding: 22px 28px 18px;
+    background: linear-gradient(110deg, alpha(@shelf_accent, .09), transparent 75%);
+}
+.tempered-shelf .title-1 { font-weight: 700; letter-spacing: -.5px; }
+.tempered-shelf .dim-label { color: @shelf_muted; opacity: 1; }
+.tempered-shelf button { border-radius: 12px; }
+.tempered-shelf button.suggested-action { background: @shelf_accent; color: @shelf_background; }
+.tempered-shelf button.suggested-action label,
+.tempered-shelf button.suggested-action image { color: @shelf_background; }
+.tempered-shelf .shelf-tabs { margin-top: 8px; }
+.tempered-shelf .shelf-tabs button { padding: 8px 20px; }
+.tempered-shelf .shelf-tabs button:checked { background: alpha(@shelf_accent, .2); }
+.tempered-shelf .capture-card {
+    background: @shelf_surface;
+    border: 1px solid alpha(@shelf_border, .22);
+    border-radius: 16px;
+}
+.tempered-shelf .capture-card button:hover { background: alpha(@shelf_accent, .12); }
+.tempered-shelf .capture-card picture { border-radius: 12px; margin: 4px; }
+.tempered-shelf .boxed-list { background: @shelf_surface; border: 1px solid alpha(@shelf_border, .18); }
+.tempered-shelf .keycap {
+    font-family: monospace; font-size: 11px;
+    padding: 6px 10px; margin: 8px 0 8px 20px;
+    background: @shelf_surfaceRaised; border-radius: 8px; color: @shelf_text;
+}
+.tempered-shelf .color-chip { background: @shelf_surface; padding: 10px; }
+.tempered-shelf .color-chip:hover { background: @shelf_surfaceRaised; }

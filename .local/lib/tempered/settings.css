@@ -24,6 +24,20 @@
     color: @tempered_muted;
 }
 
+.tempered-window button.suggested-action {
+    background: @tempered_accent;
+    color: @tempered_bg;
+}
+
+.tempered-window switch:checked {
+    background: @tempered_accent;
+}
+
+.tempered-window avatar {
+    background: alpha(@tempered_accent, .25);
+    color: @tempered_text;
+}
+
 .tempered-window .boxed-list {
     background: alpha(@tempered_surface, .84);
     border: 1px solid alpha(@tempered_border, .12);

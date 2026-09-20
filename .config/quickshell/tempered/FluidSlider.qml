@@ -11,7 +11,8 @@ Item {
     signal moved(real value)
     signal committed(real value)
 
-    onModelValueChanged: if (!drag.active) visualValue = modelValue
+    onModelValueChanged: if (!drag.pressed) { settle.stop(); visualValue = modelValue }
+    Timer { id: settle; interval: 3000; onTriggered: root.visualValue = root.modelValue }
 
     implicitWidth: 220
     implicitHeight: 32
@@ -20,7 +21,7 @@ Item {
         id: icon
         anchors.left: parent.left
         anchors.verticalCenter: parent.verticalCenter
-        width: 24
+        width: root.glyph ? 24 : 0
         text: root.glyph
         color: root.foreground
         font.family: "JetBrainsMono Nerd Font"
@@ -47,25 +48,26 @@ Item {
         Rectangle {
             x: Math.max(0, Math.min(parent.width - width, parent.width * root.visualValue - width / 2))
             anchors.verticalCenter: parent.verticalCenter
-            width: drag.active ? 16 : 12
+            width: drag.pressed ? 16 : 12
             height: width
             radius: width / 2
             color: root.foreground
             Behavior on width { NumberAnimation { duration: Math.round(100 * root.motionScale) } }
         }
 
-        MouseArea {
-            id: drag
-            anchors.fill: parent
-            property bool active: pressed
-            onPressed: update(mouse.x)
-            onPositionChanged: if (pressed) update(mouse.x)
-            onReleased: root.committed(root.visualValue)
-            onCanceled: root.visualValue = root.modelValue
-            function update(px) {
-                root.visualValue = Math.max(0, Math.min(1, px / width))
-                root.moved(root.visualValue)
-            }
+    }
+    MouseArea {
+        id: drag
+        anchors.left: icon.right; anchors.right: parent.right
+        anchors.top: parent.top; anchors.bottom: parent.bottom
+        cursorShape: Qt.PointingHandCursor
+        onPressed: mouse => { settle.stop(); update(mouse.x) }
+        onPositionChanged: mouse => { if (pressed) update(mouse.x) }
+        onReleased: { settle.restart(); root.committed(root.visualValue) }
+        onCanceled: root.visualValue = root.modelValue
+        function update(px) {
+            root.visualValue = Math.max(0, Math.min(1, px / width))
+            root.moved(root.visualValue)
         }
     }
 }

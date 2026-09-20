@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+"""Read-only TemperedOS health report. Never restarts or reconfigures services."""
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+
+config = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+checks = []
+
+
+def check(label, status, detail=""):
+    checks.append({"check": label, "status": status, "detail": detail})
+
+
+def run(command):
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=4)
+        return result.returncode, (result.stdout + result.stderr).strip()
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return 1, str(error)
+
+
+for binary in ("hyprctl", "quickshell", "python3", "wpctl", "hyprlock", "hypridle", "hyprpaper", "swaync-client", "kitty"):
+    path = shutil.which(binary)
+    check(binary, "ok" if path else "error", path or "Not installed")
+for binary in ("cava", "wlogout", "ddcutil", "brightnessctl", "wl-copy", "grim", "slurp", "clipse", "pavucontrol", "wdisplays"):
+    path = shutil.which(binary)
+    check(binary, "ok" if path else "warning", path or "Optional feature unavailable")
+code, message = run([sys.executable, "-c", "import gi, cairo; from PIL import Image; gi.require_version('Gtk', '4.0'); gi.require_version('Adw', '1'); from gi.repository import Gtk, Adw"])
+check("GTK application dependencies", "ok" if code == 0 else "error", "GTK, Adwaita, Pillow and Cairo available" if code == 0 else message)
+for relative in ("hypr/hyprland.lua", "hypr/hyprlock.conf", "quickshell/tempered/shell.qml", "quickshell/tempered/desk.py", "quickshell/tempered-launcher/shell.qml"):
+    check(relative, "ok" if (config / relative).is_file() else "error", "File present" if (config / relative).is_file() else "Missing file")
+for name in ("tempered-launcher", "tempered-control", "tempered-settings", "tempered-capture", "tempered-wallpaper-picker", "tempered-brightness", "tempered-shelf"):
+    path = Path.home() / ".local/bin" / name
+    check(name, "ok" if path.is_file() and os.access(path, os.X_OK) else "error",
+          "Executable" if path.is_file() and os.access(path, os.X_OK) else "Missing or not executable")
+if os.environ.get("HYPRLAND_INSTANCE_SIGNATURE"):
+    code, message = run(["hyprctl", "configerrors"])
+    check("Hyprland configuration", "ok" if code == 0 and not message else "error", message or "No parsing errors")
+    code, message = run(["quickshell", "ipc", "--path", str(config / "quickshell/tempered/shell.qml"), "show"])
+    check("Island process", "ok" if code == 0 else "error", "IPC is responding" if code == 0 else message)
+    code, message = run(["wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"])
+    check("Default audio output", "ok" if code == 0 else "warning", message)
+else:
+    check("Live session", "warning", "Run inside Hyprland to check the running desktop")
+for relative in ("tempered/settings.json", "tempered/palette.json"):
+    try:
+        data = json.loads((config / relative).read_text())
+        check(relative, "ok" if isinstance(data, dict) else "error", "Valid JSON")
+    except (OSError, ValueError) as error:
+        check(relative, "error", str(error))
+if "--json" in sys.argv:
+    print(json.dumps(checks, indent=2))
+else:
+    print("\n  TEMPERED OS · DESKTOP HEALTH\n  Read-only checks. Nothing is changed.\n")
+    for entry in checks:
+        symbol = {"ok": "✓", "warning": "·", "error": "!"}[entry["status"]]
+        print(f"  {symbol} {entry['check']}: {entry['detail']}")
+    print("\n  For recovery, keep your pre-change snapshot outside the repository.\n")
+sys.exit(1 if any(entry["status"] == "error" for entry in checks) else 0)

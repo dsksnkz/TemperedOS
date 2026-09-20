@@ -9,9 +9,9 @@ PACKAGES=true
 
 REPO_PACKAGES=(
     hyprland hyprpaper hypridle hyprlock xdg-desktop-portal-hyprland
-    quickshell python python-gobject python-pillow gtk4 libadwaita
-    kitty swaync swayosd brightnessctl ddcutil playerctl
-    grim slurp wl-clipboard cliphist btop fastfetch nautilus pavucontrol
+    quickshell python python-gobject python-pillow python-cairo gtk4 libadwaita
+    kitty swaync swayosd brightnessctl ddcutil playerctl cava
+    grim slurp hyprpicker wl-clipboard cliphist btop fastfetch nautilus pavucontrol
     pipewire pipewire-pulse wireplumber libnotify networkmanager
     network-manager-applet bluez bluez-utils blueman power-profiles-daemon
     mission-center polkit-gnome wdisplays hyprsunset flatseal
@@ -28,6 +28,7 @@ managed=(
     .local/bin/tempered-theme .local/bin/tempered-settings
     .local/bin/tempered-control .local/bin/tempered-capture .local/bin/tempered-power
     .local/bin/tempered-power-init
+    .local/bin/tempered-doctor .local/bin/tempered-shelf
     .local/bin/tempered-brightness .local/bin/tempered-boot
     .local/bin/tempered-launcher .local/bin/tempered-wallpaper-apply
     .local/bin/tempered-wallpaper-picker .local/share/tempered-os
@@ -35,6 +36,8 @@ managed=(
     .local/share/applications/io.github.dsksnkz.TemperedOS.Boot.desktop
     .local/share/applications/io.github.dsksnkz.TemperedOS.Launcher.desktop
     .local/share/applications/io.github.dsksnkz.TemperedOS.Wallpaper.desktop
+    .local/share/applications/io.github.dsksnkz.TemperedOS.Desk.desktop
+    .local/share/applications/io.github.dsksnkz.TemperedOS.Shelf.desktop
     .config/quickshell/tempered-launcher .config/waypaper/config.ini
     .local/lib/orbitos .local/state/orbitos
     .local/bin/orbitos-boot .local/bin/orbitos-game .local/bin/orbitos-launcher
@@ -62,13 +65,10 @@ ask() {
 step() {
     local label="$1"; shift
     printf '  ◌ %s' "$label"
-    if "$@"; then
-        printf '\r  ● %s\n' "$label"
-    else
-        local status=$?
-        printf '\r  × %s\n' "$label" >&2
-        return "$status"
-    fi
+    # Do not put the function call in an `if`: Bash disables errexit inside
+    # conditional functions, which could hide an earlier failed copy/install.
+    "$@"
+    printf '\r  ● %s\n' "$label"
 }
 
 backup_existing() {
@@ -151,7 +151,11 @@ draw_theme() {
     wallpaper="$(waypaper --list 2>/dev/null | jq -r '.[0].wallpaper // empty' 2>/dev/null || true)"
     [[ -f "$wallpaper" ]] || wallpaper="$(jq -r '.wallpaper // empty' "$HOME/.config/tempered/settings.json" 2>/dev/null || true)"
     [[ -f "$wallpaper" ]] || wallpaper="$HOME/.config/tempered/wallpapers/default.png"
-    "$HOME/.local/bin/tempered-theme" "$wallpaper" >/dev/null
+    if [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
+        "$HOME/.local/bin/tempered-theme" "$wallpaper" >/dev/null
+    else
+        "$HOME/.local/bin/tempered-theme" --no-apply "$wallpaper" >/dev/null
+    fi
 }
 
 retire_orbitos() {

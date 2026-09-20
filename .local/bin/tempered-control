@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 shell="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/tempered/shell.qml"
-exec qs ipc --path "$shell" call tempered controls
+page="${1:-controls}"
+case "$page" in
+    controls|desk|spaces|media|wifi|bluetooth|close|power|diagnostics) ;;
+    *) printf 'Unknown Tempered page: %s\n' "$page" >&2; exit 2 ;;
+esac
+exec quickshell ipc --path "$shell" call tempered "$page"

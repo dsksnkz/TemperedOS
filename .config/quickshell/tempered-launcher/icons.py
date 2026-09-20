@@ -17,6 +17,23 @@ for name in ("Papirus-Dark", "breeze-dark", "Adwaita", "AdwaitaLegacy", "hicolor
 resolved = {}
 for app in Gio.AppInfo.get_all():
     icon = app.get_icon()
+    if isinstance(icon, Gio.FileIcon):
+        file = icon.get_file()
+        path = file.get_path()
+        fallback = Path(__file__).with_name("application.svg").as_uri()
+        uri = fallback
+        if path:
+            try:
+                with open(path, "rb") as source:
+                    content_type, _ = Gio.content_type_guess(path, source.read(4096))
+                if content_type.startswith("image/"):
+                    uri = Path(path).as_uri()
+            except (OSError, ValueError):
+                pass
+            resolved[path] = uri
+            resolved[file.get_uri()] = uri
+            resolved[icon.to_string()] = uri
+        continue
     if not isinstance(icon, Gio.ThemedIcon):
         continue
     for name in icon.get_names():

@@ -33,7 +33,7 @@ Item {
 
     Process {
         id: themeReader
-        command: ["cat", "/tmp/qs_colors.json"]
+        command: ["cat", (Quickshell.env("XDG_CONFIG_HOME") || Quickshell.env("HOME") + "/.config") + "/tempered/picker-colors.json"]
         stdout: StdioCollector {
             onStreamFinished: {
                 let txt = this.text.trim();

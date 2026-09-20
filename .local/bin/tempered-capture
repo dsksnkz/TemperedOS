@@ -1,9 +1,3 @@
 #!/usr/bin/env bash
 set -euo pipefail
-shots="${XDG_PICTURES_DIR:-$HOME/Pictures}/Screenshots"
-mkdir -p "$shots"
-target="$shots/Tempered-$(date +%Y%m%d-%H%M%S).png"
-geometry="$(slurp)" || exit 0
-grim -g "$geometry" "$target"
-wl-copy < "$target"
-notify-send -i "$target" "Captured" "Copied and saved to $target"
+exec python3 "$HOME/.local/lib/tempered/capture.py" "$@"

@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import signal
 import subprocess
 import time
@@ -45,30 +44,6 @@ def memory_percent() -> int:
     return round(100 * (1 - values.get("MemAvailable", 0) / max(1, values.get("MemTotal", 1))))
 
 
-def volume() -> tuple[int, bool]:
-    raw = command(["wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"], "Volume: 0")
-    match = re.search(r"([0-9.]+)", raw)
-    return round(float(match.group(1)) * 100) if match else 0, "MUTED" in raw
-
-
-def workspace() -> tuple[int, str]:
-    raw = command(["hyprctl", "activeworkspace", "-j"], "{}")
-    try:
-        data = json.loads(raw)
-        return int(data.get("id", 1)), str(data.get("name", "1"))
-    except (TypeError, ValueError, json.JSONDecodeError):
-        return 1, "1"
-
-
-def media() -> tuple[str, str, bool]:
-    template = "{{status}}\t{{artist}}\t{{title}}"
-    raw = command(["playerctl", "metadata", "--format", template])
-    if not raw:
-        return "", "", False
-    state, artist, title = (raw.split("\t", 2) + ["", ""])[:3]
-    return artist, title, state == "Playing"
-
-
 def network() -> str:
     raw = command(["nmcli", "-t", "-f", "TYPE,STATE,CONNECTION", "device"])
     for line in raw.splitlines():
@@ -102,41 +77,48 @@ def read_json(path: Path) -> dict:
         return {}
 
 
+def brightness_error() -> str:
+    path = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "tempered-os/brightness-error"
+    try:
+        return path.read_text().strip()[:180]
+    except OSError:
+        return ""
+
+
 def main() -> None:
     signal.signal(signal.SIGPIPE, signal.SIG_DFL)
     previous = None
     slow = {
-        "workspace": 1, "workspaceName": "1", "network": "Offline",
-        "battery": -1, "artist": "", "title": "", "playing": False,
+        "network": "Offline", "battery": -1, "cpu": 0, "memory": 0,
         "palette": read_json(PALETTE), "settings": read_json(SETTINGS),
     }
-    next_media = next_network = next_files = 0.0
+    next_stats = next_network = next_files = 0.0
+    last = None
     while True:
         now = time.monotonic()
-        cpu, previous = cpu_sample(previous)
-        level, muted = volume()
-        if now >= next_media:
-            ws_id, ws_name = workspace()
-            artist, title, playing = media()
-            slow.update(workspace=ws_id, workspaceName=ws_name, artist=artist, title=title, playing=playing)
-            next_media = now + 0.8
+        # Audio, media and workspaces use native event-driven Quickshell services.
+        # Only /proc and small local files are sampled here; one feed for all screens.
+        if now >= next_stats:
+            cpu, previous = cpu_sample(previous)
+            slow.update(cpu=cpu, memory=memory_percent())
+            next_stats = now + 2.0
         if now >= next_network:
             slow.update(network=network(), battery=battery())
-            next_network = now + 4.0
+            next_network = now + 12.0
         if now >= next_files:
             slow.update(palette=read_json(PALETTE), settings=read_json(SETTINGS))
             next_files = now + 1.0
         payload = {
             **slow,
-            "cpu": cpu,
-            "memory": memory_percent(),
-            "volume": level,
-            "muted": muted,
             "brightness": brightness(),
+            "brightnessError": brightness_error(),
             "user": os.environ.get("USER", "You"),
         }
-        print(json.dumps(payload, separators=(",", ":")), flush=True)
-        time.sleep(0.20)
+        encoded = json.dumps(payload, separators=(",", ":"))
+        if encoded != last:
+            print(encoded, flush=True)
+            last = encoded
+        time.sleep(0.5)
 
 
 if __name__ == "__main__":

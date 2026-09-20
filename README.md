@@ -15,11 +15,49 @@ context—not as decoration over every pixel.
 - Dark wallpaper-derived surfaces with lively secondary accents and readable contrast
 - A Quickshell launcher and wallpaper browser—no Rofi menu in the interaction path
 - A connected “current” for workspaces, media, networking, sound and system load
+- A personal desk with a calendar, private notes and a persistent focus timer
+- Live audio controls, audio-reactive music bars and a workspace overview
+- Launcher pins, recent apps, desktop actions and a local calculator
+- Shelf: a screenshot library, pinned places, saved colors and a shortcut guide
+- Offline unit conversions and area/window/display capture with optional delay
 - A real settings application for appearance, island behavior, displays,
   sound routing, input, motion, networking, power, accessibility and privacy
 - A short droplet boot handoff whose material comes from the wallpaper
 - Hardware-safe installation that preserves the existing monitor arrangement
 - Orbit Apps remains the installed-software manager
+
+[What's new and how to use it](docs/desk-update.md)
+
+[Shelf and everyday tools](docs/shelf-update.md)
+
+## See the features
+
+Focus timer, calendar and private notes.
+
+![Desk with a focus session, calendar and notes](assets/desk-focus.png)
+
+Offline calculations and unit conversions, directly in the launcher.
+
+![Launcher converting millimetres to inches](assets/launcher-conversions.png)
+
+<details>
+<summary>Shelf: captures, colors and keyboard shortcuts</summary>
+
+Choose an area, window or display, add a delay, and browse saved captures.
+
+![Shelf screenshot capture and library](assets/shelf-captures.png)
+
+Pick screen colors, save them and copy their hex values.
+
+![Shelf wallpaper palette and saved colors](assets/shelf-colors.png)
+
+Search your configured keyboard shortcuts.
+
+![Shelf keyboard shortcut reference](assets/shelf-shortcuts.png)
+
+</details>
+
+Screenshots show the real interfaces with demonstration notes, colors and capture data.
 
 <details>
 <summary>See the island and Settings</summary>

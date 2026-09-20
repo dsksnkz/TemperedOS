@@ -2,5 +2,11 @@
 set -euo pipefail
 
 shell="$HOME/.config/quickshell/tempered-launcher/shell.qml"
+case "${1:-}" in
+    --windows) export TEMPERED_LAUNCHER_MODE=windows ;;
+    --actions) export TEMPERED_LAUNCHER_MODE=actions ;;
+    "") export TEMPERED_LAUNCHER_MODE=apps ;;
+    *) printf 'Usage: tempered-launcher [--windows|--actions]\n' >&2; exit 2 ;;
+esac
 quickshell kill --path "$shell" >/dev/null 2>&1 || true
 exec quickshell --daemonize --path "$shell"
