@@ -2,7 +2,7 @@
 
 An adaptive, UX-first desktop layer for Arch Linux and Hyprland.
 
-![Tempered OS desktop](assets/tempered-desktop.png)
+![Tempered OS with the current wallpaper and Control Center open](assets/tempered-desktop.png)
 
 Tempered OS draws its color system from the current wallpaper, then carries
 that material through its centered dynamic island, launcher, notifications,
@@ -57,7 +57,7 @@ Search your configured keyboard shortcuts.
 
 </details>
 
-Screenshots show the real interfaces with demonstration notes, colors and capture data.
+The feature gallery shows the real interfaces with demonstration notes, colors and capture data.
 
 <details>
 <summary>See the island and Settings</summary>
