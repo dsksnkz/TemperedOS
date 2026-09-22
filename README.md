@@ -7,7 +7,7 @@ An adaptive, UX-first desktop layer for Arch Linux and Hyprland.
 Tempered OS draws its color system from the current wallpaper, then carries
 that material through its centered dynamic island, launcher, notifications,
 terminal, lock screen, power surface, and settings. Acrylic is used for
-context—not as decoration over every pixel.
+context—not as decoration over every pixel. Created by Codex
 
 ## What makes it different
 
